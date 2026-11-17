@@ -1,0 +1,15 @@
+# Installation : python -m venv .venv  puis  .venv\Scripts\python.exe -m pip install -r requirements.txt
+fastapi
+uvicorn
+requests
+numpy
+opencv-python
+pillow
+faster-whisper
+sherpa-onnx
+onnxruntime
+yt-dlp
+chat-downloader
+google-api-python-client
+google-auth-oauthlib
+pytest

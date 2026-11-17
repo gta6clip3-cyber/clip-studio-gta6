@@ -1,0 +1,20 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets et jetons (ne JAMAIS publier)
+data/config.json
+data/*secret*.json
+data/*token*.json
+.env
+
+# Fichiers generes / lourds
+output/
+work/
+assets/models/
+tests/_fixtures/
+
+# Divers
+.claude/settings.local.json
+Thumbs.db

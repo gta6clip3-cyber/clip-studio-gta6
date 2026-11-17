@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clip Studio</title>
+<style>
+:root{
+  --bg:#0c0b12;--panel:#15131f;--panel2:#1d1a2b;--line:#2b2740;--text:#eeeaf8;--mute:#9a93b5;
+  --pink:#ff3d8b;--orange:#ffa53d;--cyan:#3de0ff;--ok:#3ddc84;--err:#ff5c5c;
+  --grad:linear-gradient(90deg,var(--pink),var(--orange));
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:18px;padding:16px 28px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#171428,#0c0b12)}
+.logo{font-weight:900;font-size:22px;letter-spacing:.5px;background:var(--grad);-webkit-background-clip:text;color:transparent}
+nav{display:flex;gap:6px;margin-left:12px}
+nav{flex-wrap:wrap}
+nav button{background:none;border:0;color:var(--mute);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap}
+nav button.on{color:var(--text);background:var(--panel2)}
+.pills{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.pill{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panel2);color:var(--mute)}
+.pill.ok::before{content:"● ";color:var(--ok)} .pill.no::before{content:"● ";color:var(--err)}
+main{max-width:1280px;margin:0 auto;padding:26px 28px 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
+h2{margin:0 0 14px;font-size:17px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;
+  padding:11px 13px;font:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--pink);border-color:transparent}
+#url{flex:1;min-width:280px;font-size:16px}
+.btn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;color:#14101f;background:var(--grad)}
+.btn.sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:default}
+.hint{color:var(--mute);font-size:13px;margin-top:8px}
+.job{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:var(--panel2)}
+.job .top{display:flex;gap:10px;align-items:center}
+.tag{font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:var(--line)}
+.tag.live{background:var(--err);color:#fff} .tag.auto{background:var(--cyan);color:#000}
+.bar{height:6px;background:var(--bg);border-radius:9px;overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--grad);transition:width .4s}
+.job details{margin-top:6px} .job pre{max-height:220px;overflow:auto;font-size:12px;color:var(--mute);white-space:pre-wrap;margin:6px 0 0}
+.status{font-size:12px;color:var(--mute);margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}
+.clip{background:var(--panel2);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.clip video{width:100%;aspect-ratio:9/16;background:#000;display:block}
+.clip .body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.clip .t{font-weight:800}
+.clip .meta{font-size:12px;color:var(--mute)}
+.clip textarea{width:100%;min-height:86px;font-size:12px;resize:vertical}
+.clip .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.pub{font-size:12px} .pub a{color:var(--cyan)}
+.score{float:right;background:var(--grad);color:#14101f;font-weight:900;border-radius:7px;padding:1px 7px;font-size:12px}
+table{width:100%;border-collapse:collapse} td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase}
+td img{width:112px;border-radius:6px;display:block}
+.form{display:grid;grid-template-columns:240px 1fr;gap:10px 16px;align-items:center}
+.form label{color:var(--mute);font-size:14px}
+.sec-title{grid-column:1/-1;margin:14px 0 2px;font-weight:800;color:var(--orange)}
+.guide{font-size:14px;color:var(--mute)} .guide b{color:var(--text)} .guide code{background:var(--bg);padding:1px 6px;border-radius:5px}
+.hidden{display:none}
+.empty{color:var(--mute);text-align:center;padding:30px}
+@media (max-width:700px){header{flex-wrap:wrap;padding:14px 16px}main{padding:18px 16px}.form{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CLIP STUDIO</div>
+  <nav>
+    <button data-tab="create" class="on">Créer</button>
+    <button data-tab="clips">Mes clips</button>
+    <button data-tab="trend">Streamers du moment</button>
+    <button data-tab="settings">Paramètres</button>
+  </nav>
+  <div class="pills" id="pills"></div>
+</header>
+<main>
+
+<section id="tab-create">
+  <div class="card">
+    <h2>Colle le lien d'un live ou d'une rediffusion</h2>
+    <div class="row">
+      <input id="url" placeholder="https://www.twitch.tv/... · https://www.youtube.com/watch?v=... · https://kick.com/...">
+      <select id="mode"><option value="auto">Détection auto</option><option value="vod">Rediffusion</option><option value="live">Live</option></select>
+      <select id="nclips"><option value="">Clips : auto</option><option>1</option><option>3</option><option>5</option><option>8</option><option>12</option></select>
+      <button class="btn" id="go">Créer les clips</button>
+    </div>
+    <div class="hint">Rediffusion : l'app analyse tout le stream et sort les meilleurs moments. Live : elle enregistre et crée un clip à chaque moment fort, jusqu'à ce que tu l'arrêtes.</div>
+  </div>
+  <div class="card">
+    <h2>Mode automatique</h2>
+    <div class="row">
+      <span>Surveiller en continu les</span>
+      <select id="topn"><option>1</option><option>2</option><option selected>3</option><option>5</option></select>
+      <span>plus gros lives GTA 6 et clipper automatiquement</span>
+      <button class="btn sec" id="auto">Lancer</button>
+    </div>
+    <div class="hint">Nécessite les identifiants Twitch gratuits (onglet Paramètres).</div>
+  </div>
+  <div class="card">
+    <h2>Tâches</h2>
+    <div id="jobs"><div class="empty">Aucune tâche pour l'instant.</div></div>
+  </div>
+</section>
+
+<section id="tab-clips" class="hidden">
+  <div class="row" style="margin-bottom:16px">
+    <h2 style="margin:0">Clips prêts</h2>
+    <button class="btn sec sm" id="openout" style="margin-left:auto">Ouvrir le dossier</button>
+  </div>
+  <div class="grid" id="clips"></div>
+</section>
+
+<section id="tab-trend" class="hidden">
+  <div class="card">
+    <div class="row"><h2 style="margin:0">Lives GTA 6 les plus regardés</h2>
+      <button class="btn sec sm" id="refresh" style="margin-left:auto">Actualiser</button></div>
+    <div id="trend-err" class="hint"></div>
+    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th>Viewers</th><th></th></tr></thead><tbody id="trend-live"></tbody></table>
+  </div>
+  <div class="card">
+    <h2>Rediffusions les plus vues cette semaine (Twitch)</h2>
+    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th>Vues</th><th></th></tr></thead><tbody id="trend-vod"></tbody></table>
+  </div>
+</section>
+
+<section id="tab-settings" class="hidden">
+  <div class="card">
+    <div class="form" id="form"></div>
+    <div class="row" style="margin-top:18px"><button class="btn" id="save">Enregistrer</button>
+      <button class="btn sec" id="ytconnect">Connecter YouTube</button><span id="saved" class="hint"></span></div>
+  </div>
+  <div class="card guide">
+    <h2>Guide des connexions (tout est gratuit)</h2>
+    <p><b>Twitch (découverte des streamers)</b> : va sur <code>dev.twitch.tv/console</code> → « Register Your Application » → URL de redirection <code>http://localhost</code> → copie le Client ID et génère un Client Secret.</p>
+    <p><b>YouTube</b> : dans <code>console.cloud.google.com</code>, crée un projet, active « YouTube Data API v3 », crée un identifiant OAuth de type « Application de bureau », télécharge le JSON et renomme-le <code>youtube_client_secret.json</code> dans le dossier <code>data</code>, puis clique sur « Connecter YouTube ». Une clé API (même console) sert à trouver les lives YouTube.</p>
+    <p><b>TikTok</b> : crée une app sur <code>developers.tiktok.com</code> avec le produit « Content Posting API » (scope <code>video.publish</code>). Tant que TikTok n'a pas validé ton app, les vidéos sont publiées en privé (SELF_ONLY).</p>
+    <p><b>Instagram</b> : compte Instagram professionnel relié à une page Facebook, app sur <code>developers.facebook.com</code> avec « Instagram Graph API » (permissions <code>instagram_content_publish</code>). Renseigne l'ID utilisateur Instagram et le jeton longue durée.</p>
+    <p><b>Musique de fond</b> : dépose des musiques libres de droits dans <code>assets\music</code>. Elles sont baissées automatiquement quand le streamer parle.</p>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = async (p, o = {}) => {
+  const r = await fetch(p, {headers: {"Content-Type": "application/json"}, ...o});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || r.statusText);
+  return d;
+};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("hidden", s.id !== "tab-" + b.dataset.tab));
+  if (b.dataset.tab === "clips") loadClips();
+  if (b.dataset.tab === "trend") loadTrend();
+  if (b.dataset.tab === "settings") loadSettings();
+});
+
+async function loadStatus() {
+  try {
+    const s = await api("/api/status");
+    const p = [["FFmpeg", s.ffmpeg], ["IA locale", s.ollama], ["Twitch API", s.twitch_api],
+               ["YouTube", s.youtube_connected], ["TikTok", s.tiktok], ["Instagram", s.instagram]];
+    $("#pills").innerHTML = p.map(([n, ok]) => `<span class="pill ${ok ? "ok" : "no"}">${n}</span>`).join("") +
+      `<span class="pill">Publication : ${s.publish_mode === "auto" ? "auto" : "manuelle"}</span>`;
+  } catch {}
+}
+
+$("#go").onclick = async () => {
+  const url = $("#url").value.trim();
+  if (!url) return;
+  $("#go").disabled = true; $("#go").textContent = "Vérification...";
+  try {
+    await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: $("#mode").value,
+      max_clips: $("#nclips").value ? +$("#nclips").value : null})});
+    $("#url").value = "";
+    loadJobs();
+  } catch (e) { alert(e.message); }
+  $("#go").disabled = false; $("#go").textContent = "Créer les clips";
+};
+$("#auto").onclick = async () => {
+  try { await api("/api/auto", {method: "POST", body: JSON.stringify({top_n: +$("#topn").value})}); loadJobs(); }
+  catch (e) { alert(e.message); }
+};
+
+const openLogs = new Set();
+async function loadJobs() {
+  const jobs = await api("/api/jobs").catch(() => []);
+  if (!jobs.length) return;
+  $("#jobs").innerHTML = jobs.map(j => `
+    <div class="job">
+      <div class="top"><span class="tag ${j.kind}">${j.kind === "vod" ? "rediff" : j.kind}</span>
+        <b>${esc(j.streamer || j.url)}</b>
+        <span class="status">${esc(j.status)} · ${j.clips.length} clip(s)</span>
+        ${["en cours", "en attente"].includes(j.status) ? `<button class="btn sec sm" onclick="stopJob('${j.id}')">Arrêter</button>` : ""}
+      </div>
+      ${j.kind === "vod" ? `<div class="bar"><i style="width:${Math.round(j.progress * 100)}%"></i></div>` : `<div style="height:8px"></div>`}
+      <div class="meta" style="font-size:13px">${esc(j.step)}</div>
+      <details ${openLogs.has(j.id) ? "open" : ""} ontoggle="this.open ? openLogs.add('${j.id}') : openLogs.delete('${j.id}')">
+        <summary class="hint" style="cursor:pointer">Journal</summary><pre>${esc(j.logs.join("\n"))}</pre></details>
+    </div>`).join("");
+}
+window.stopJob = async id => { await api(`/api/jobs/${id}/stop`, {method: "POST"}); loadJobs(); };
+
+async function loadClips() {
+  const clips = await api("/api/clips").catch(() => []);
+  if (!clips.length) { $("#clips").innerHTML = `<div class="empty">Pas encore de clip.</div>`; return; }
+  $("#clips").innerHTML = clips.map(c => {
+    const base = `/media/${encodeURIComponent(c.folder)}`;
+    const pub = Object.entries(c.published || {}).map(([k, v]) =>
+      v.ok ? `${k} : ${v.link?.startsWith("http") ? `<a href="${esc(v.link)}" target="_blank">voir</a>` : "ok"}` : `${k} : <span style="color:var(--err)">erreur</span>`).join(" · ");
+    return `<div class="clip">
+      <video src="${base}/clip.mp4" poster="${base}/cover.jpg" controls preload="none"></video>
+      <div class="body">
+        <div class="t">${c.score ? `<span class="score">${c.score}/10</span>` : ""}${esc(c.title)}</div>
+        <div class="meta">${esc(c.streamer)} · ${c.duration}s · ${esc(c.platform)} · ${esc(c.created)}</div>
+        <textarea readonly>${esc(c.caption)}</textarea>
+        <div class="pub">${pub}</div>
+        <div class="acts">
+          <button class="btn sec sm" onclick="copyTxt(this, ${esc(JSON.stringify(c.title))})">Copier titre</button>
+          <button class="btn sec sm" onclick="copyTxt(this, this.closest('.clip').querySelector('textarea').value)">Copier légende</button>
+          <a class="btn sec sm" href="${base}/clip.mp4" download>Vidéo</a>
+          <a class="btn sec sm" href="${base}/cover.jpg" download>Cover</a>
+          <button class="btn sm" onclick="pub('${c.folder}', this)">Publier</button>
+          <button class="btn sec sm" onclick="del('${c.folder}')">Supprimer</button>
+        </div>
+      </div></div>`;
+  }).join("");
+}
+window.copyTxt = (btn, t) => { navigator.clipboard.writeText(t); const o = btn.textContent; btn.textContent = "Copié !"; setTimeout(() => btn.textContent = o, 1200); };
+window.pub = async (f, btn) => {
+  if (!confirm("Publier ce clip sur les plateformes cochées dans Paramètres ?")) return;
+  btn.disabled = true; btn.textContent = "Envoi...";
+  try { const r = await api(`/api/clips/${f}/publish`, {method: "POST", body: "{}"}); alert(Object.entries(r).map(([k, v]) => `${k} : ${v}`).join("\n")); }
+  catch (e) { alert(e.message); }
+  loadClips();
+};
+window.del = async f => { if (confirm("Mettre ce clip à la corbeille ?")) { await api(`/api/clips/${f}`, {method: "DELETE"}); loadClips(); } };
+$("#openout").onclick = () => api("/api/open-output", {method: "POST"});
+
+async function loadTrend() {
+  $("#trend-live").innerHTML = `<tr><td colspan=5 class="hint">Chargement...</td></tr>`;
+  const d = await api("/api/trending").catch(e => ({live: [], vods: [], errors: [e.message]}));
+  $("#trend-err").textContent = (d.errors || []).join(" · ");
+  const row = (s, label) => `<tr><td><img src="${esc(s.thumbnail)}" loading="lazy"></td><td><b>${esc(s.streamer)}</b><div class="hint">${esc(s.platform)} ${esc(s.language)}</div></td>
+    <td>${esc(s.title)}</td><td>${(s.viewers || 0).toLocaleString("fr-FR")}</td>
+    <td><button class="btn sm" onclick="clipUrl('${esc(s.url)}')">${label}</button></td></tr>`;
+  $("#trend-live").innerHTML = d.live.map(s => row(s, "Clipper le live")).join("") || `<tr><td colspan=5 class="hint">Aucun live trouvé.</td></tr>`;
+  $("#trend-vod").innerHTML = d.vods.map(s => row(s, "Clipper la rediff")).join("") || `<tr><td colspan=5 class="hint">—</td></tr>`;
+}
+$("#refresh").onclick = loadTrend;
+window.clipUrl = async url => {
+  try { await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: "auto"})});
+    document.querySelector('nav button[data-tab="create"]').click(); loadJobs(); }
+  catch (e) { alert(e.message); }
+};
+
+const FIELDS = [
+  ["Clips", null],
+  ["clip_target_seconds", "Durée visée (s)", "number"], ["clip_min_seconds", "Durée min (s)", "number"],
+  ["clip_max_seconds", "Durée max (s)", "number"], ["max_clips_per_vod", "Clips max par rediffusion", "number"],
+  ["game_name", "Catégorie du jeu (Twitch)", "text"],
+  ["Montage", null],
+  ["facecam_height", "Hauteur de la facecam (px sur 1920)", "number"], ["music_volume", "Volume musique (0-1)", "number"],
+  ["sfx_volume", "Volume effets sonores (0-1)", "number"], ["credit_streamer", "Afficher @streamer", "bool"],
+  ["Live", null],
+  ["live_spike_threshold", "Sensibilité (plus bas = plus de clips)", "number"], ["live_cooldown_seconds", "Délai mini entre 2 clips (s)", "number"],
+  ["Découverte", null],
+  ["twitch_client_id", "Twitch Client ID", "text"], ["twitch_client_secret", "Twitch Client Secret", "password"],
+  ["youtube_api_key", "Clé API YouTube", "password"],
+  ["Publication", null],
+  ["publish_mode", "Mode de publication", ["manual", "auto"]],
+  ["publish_youtube", "Publier sur YouTube", "bool"], ["youtube_privacy", "Visibilité YouTube", ["public", "unlisted", "private"]],
+  ["publish_tiktok", "Publier sur TikTok", "bool"], ["tiktok_privacy", "Visibilité TikTok", ["SELF_ONLY", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS"]],
+  ["tiktok_client_key", "TikTok Client Key", "text"], ["tiktok_client_secret", "TikTok Client Secret", "password"],
+  ["tiktok_access_token", "TikTok Access Token", "password"], ["tiktok_refresh_token", "TikTok Refresh Token", "password"],
+  ["publish_instagram", "Publier sur Instagram", "bool"], ["instagram_user_id", "Instagram User ID", "text"],
+  ["instagram_access_token", "Instagram Access Token", "password"],
+];
+async function loadSettings() {
+  const c = await api("/api/config");
+  $("#form").innerHTML = FIELDS.map(([k, label, type]) => {
+    if (label === null) return `<div class="sec-title">${k}</div>`;
+    let input;
+    if (type === "bool") input = `<select data-k="${k}" data-t="bool"><option value="true" ${c[k] ? "selected" : ""}>Oui</option><option value="false" ${!c[k] ? "selected" : ""}>Non</option></select>`;
+    else if (Array.isArray(type)) input = `<select data-k="${k}">${type.map(o => `<option ${c[k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+    else input = `<input data-k="${k}" data-t="${type}" type="${type}" value="${esc(c[k])}" ${type === "number" ? 'step="any"' : ""}>`;
+    return `<label>${label}</label>${input}`;
+  }).join("");
+}
+$("#save").onclick = async () => {
+  const v = {};
+  document.querySelectorAll("#form [data-k]").forEach(el => {
+    const t = el.dataset.t;
+    v[el.dataset.k] = t === "number" ? +el.value : t === "bool" ? el.value === "true" : el.value;
+  });
+  await api("/api/config", {method: "POST", body: JSON.stringify(v)});
+  $("#saved").textContent = "Enregistré ✓"; setTimeout(() => $("#saved").textContent = "", 2000);
+  loadStatus();
+};
+$("#ytconnect").onclick = async () => {
+  try { await api("/api/youtube/connect", {method: "POST"}); alert("YouTube connecté !"); loadStatus(); }
+  catch (e) { alert(e.message); }
+};
+
+loadStatus(); loadJobs();
+setInterval(loadJobs, 2500); setInterval(loadStatus, 15000);
+</script>
+</body>
+</html>
