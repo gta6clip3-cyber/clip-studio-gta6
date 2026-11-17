@@ -27,6 +27,19 @@ détection des moments forts, sous-titres, montage et publication. Tout tourne e
 Double-clique sur **`Lancer.bat`**. L'interface s'ouvre dans ton navigateur (http://127.0.0.1:8765).
 Laisse la fenêtre noire ouverte tant que tu utilises l'app.
 
+**Linux** : installe `python3`, `ffmpeg`, `curl`, `tar`, `bzip2` et [Ollama](https://ollama.com/download), puis dans le dossier du projet :
+```
+./installer.sh
+./lancer.sh
+```
+`installer.sh` se lance une seule fois : il crée l'environnement Python, télécharge les modèles (détection, Whisper,
+IA locale) et ne demande jamais de mot de passe. On peut le relancer sans risque. `lancer.sh` démarre l'application.
+- Debian : il faut aussi le paquet `python3-venv`.
+- `ffmpeg -encoders | grep libx264` doit répondre : sur Fedora prends le ffmpeg de RPM Fusion, sur openSUSE celui de Packman
+  (celui des dépôts de base n'a pas cet encodeur, utilisé quand il n'y a pas de carte NVIDIA).
+- Carte NVIDIA : seul le pilote doit être installé sur le système ; le script met lui-même les bibliothèques CUDA
+  dans l'environnement Python. Sans carte NVIDIA, mets `"whisper_device": "cpu"` dans `data/config.json`.
+
 ## Utilisation
 - **Créer** : colle le lien d'un live ou d'une rediffusion (Twitch, YouTube, Kick), puis clique sur « Créer les clips ».
   - *Rediffusion* : l'app télécharge l'audio et le chat, repère les moments forts, ne télécharge en 1080p que les passages retenus et sort les clips.
@@ -40,8 +53,12 @@ Chaque clip est rangé dans `output/<date>_<streamer>_<n>/` :
 
 ## Comment les moments forts sont détectés (100 % local, gratuit)
 1. **Chat** : explosion du nombre de messages, emotes de rire ou de choc (KEKW, LUL, OMEGALUL, Pog, « clip », mdr…), messages en MAJUSCULES.
+   Dans un chat calme, un message isolé ne compte pas comme un pic : il faut plusieurs messages groupés.
+   Le chat des rediffusions Twitch est lu en 4 tranches à la fois, celui des rediffusions YouTube avec yt-dlp.
+   En direct, le chat Twitch est lu en continu et se reconnecte tout seul après une coupure.
 2. **Audio** : pics de volume (cris, rires, explosions).
 3. **IA locale (Ollama + Qwen 2.5)** : lit la transcription de chaque candidat, note son potentiel viral de 1 à 10, choisit le début et la fin exacts, puis écrit le titre, l'accroche, la légende et les hashtags en anglais.
+   Elle reçoit aussi ce que le texte ne montre pas : quelles phrases sont criées (`<<LOUD>>`) et ce que le chat écrit juste après chaque phrase (`<<chat: KEKW x12>>`).
 4. **Whisper large-v3 (GPU)** : transcrit la parole ; les sous-titres sont traduits en anglais.
 
 ## Montage

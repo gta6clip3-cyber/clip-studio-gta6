@@ -107,7 +107,10 @@ def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
                 return ImageFont.truetype(p, size)
             except OSError:
                 continue
-    return ImageFont.load_default()
+    try:  # Linux : la police grasse du systeme (fontconfig)
+        return ImageFont.truetype(run(["fc-match", "-f", "%{file}", "sans:bold"]).stdout, size)
+    except (OSError, RuntimeError):
+        return ImageFont.load_default(size)
 
 
 def _grab(src: Path, t: float) -> np.ndarray:

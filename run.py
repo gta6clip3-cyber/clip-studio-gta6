@@ -1,5 +1,6 @@
 """Lance l'application : python run.py  (ou double-clic sur Lancer.bat)."""
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -10,15 +11,16 @@ PORT = 8765
 
 
 def ensure_ollama() -> None:
-    exe = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"
+    # Linux : ollama est dans le PATH ; Windows : dossier d'installation par defaut
+    exe = shutil.which("ollama") or Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"
     try:
         import requests
         requests.get("http://127.0.0.1:11434/api/tags", timeout=2)
         return
     except Exception:
         pass
-    if exe.exists():
-        subprocess.Popen([str(exe), "serve"], creationflags=0x08000000)
+    if Path(exe).exists():
+        subprocess.Popen([str(exe), "serve"], creationflags=0x08000000 if os.name == "nt" else 0)
 
 
 if __name__ == "__main__":

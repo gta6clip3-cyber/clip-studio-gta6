@@ -176,5 +176,9 @@ def youtube_connect():
 @app.post("/api/open-output")
 def open_output():
     import os
-    os.startfile(str(config.OUTPUT))  # noqa: S606 - ouvre le dossier dans l'explorateur Windows
+    import subprocess
+    if hasattr(os, "startfile"):
+        os.startfile(str(config.OUTPUT))  # noqa: S606 - ouvre le dossier dans l'explorateur Windows
+    elif shutil.which("xdg-open"):
+        subprocess.Popen(["xdg-open", str(config.OUTPUT)])  # Linux
     return {"ok": True}

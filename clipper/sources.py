@@ -39,11 +39,14 @@ def clean_name(name: str) -> str:
 def get_info(url: str) -> dict:
     res = run(_ytdlp_base() + ["-J", url], timeout=120)
     info = json.loads(res.stdout)
+    title = info.get("title") or ""
+    if info.get("is_live") and platform_of(url) == "twitch" and info.get("description"):
+        title = info["description"]  # live Twitch : title = "Nom (live) date", le vrai titre est dans description
     return {
         "url": url,
         "platform": platform_of(url),
         "id": info.get("id"),
-        "title": info.get("title") or "",
+        "title": title,
         "streamer": clean_name(info.get("uploader") or info.get("channel") or info.get("uploader_id") or "streamer"),
         "streamer_id": info.get("uploader_id") or info.get("channel_id") or "",
         "is_live": bool(info.get("is_live")),
@@ -65,7 +68,8 @@ def download_audio(url: str, out_dir: Path) -> Path:
     if existing:
         return existing[0]
     tmpl = str(out_dir / "audio.%(ext)s")
-    run(_ytdlp_base() + ["-f", "bestaudio/Audio_Only/worst", "-o", tmpl, url], timeout=None)
+    # -N 8 : 8 morceaux telecharges en meme temps (une rediffusion Twitch = des milliers de petits morceaux)
+    run(_ytdlp_base() + ["-N", "8", "-f", "bestaudio/Audio_Only/worst", "-o", tmpl, url], timeout=None)
     files = [p for p in out_dir.glob("audio.*") if p.suffix not in (".part", ".ytdl")]
     if not files:
         raise RuntimeError("Telechargement audio echoue.")

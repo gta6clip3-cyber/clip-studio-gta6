@@ -21,6 +21,21 @@ def available() -> bool:
         return False
 
 
+_thinks: dict[str, bool] = {}
+
+
+def _can_think(url: str, model: str) -> bool:
+    """Le modele raisonne-t-il avant de repondre (qwen3, qwen3.5, gemma4...) ? Si oui on coupe ce raisonnement :
+    il rend chaque reponse plusieurs fois plus lente. C'est Ollama qui le dit, modele par modele."""
+    if model not in _thinks:
+        try:
+            r = requests.post(url + "/api/show", json={"model": model}, timeout=5)
+            _thinks[model] = "thinking" in r.json().get("capabilities", [])
+        except Exception:
+            return False  # Ollama injoignable : on redemandera au prochain appel
+    return _thinks[model]
+
+
 def chat_json(system: str, user: str, temperature: float = 0.4, keep_alive: str = "5m") -> dict | list | None:
     cfg = config.load()
     try:
@@ -31,7 +46,7 @@ def chat_json(system: str, user: str, temperature: float = 0.4, keep_alive: str 
             "stream": False,
             "keep_alive": keep_alive,
             "options": {"temperature": temperature, "num_ctx": 8192},
-            **({"think": False} if cfg["ollama_model"].startswith("qwen3") else {}),
+            **({"think": False} if _can_think(cfg["ollama_url"], cfg["ollama_model"]) else {}),
         }, timeout=600)
         r.raise_for_status()
         content = r.json()["message"]["content"]
@@ -78,6 +93,17 @@ Return JSON: {{"payoff": number, "reaction": number, "standalone": number, "bori
 "summary": string (what happens, 1 sentence), "game": string (name of the game actually played)}}"""
 
 
+# ajoute au message seulement quand la transcription porte des notes (voir highlights.reactions)
+NOTES_LEGEND = """
+Some transcript lines end with <<notes>> measured on the audio and on the live chat (the text cannot show them):
+- LOUD = very loud during or right after the line (shouting, laughter or a loud game sound), far above the rest
+  of the stream;
+- chat: KEKW x12 = how many viewers typed that reaction right after the line (KEKW, LUL, MDR, PTDR = laughing;
+  POG, OMG, WTF = shock or hype; CLIP = viewers asking for a clip).
+Use the notes to rate "reaction" and to place punch_time.
+"""
+
+
 def combine_score(res: dict) -> float:
     """Note finale 1-10 calculee a partir des criteres (plus stable que la note globale du modele)."""
     def g(k, d=5.0):
@@ -100,18 +126,22 @@ def judge_candidate(transcript_text: str, window_len: float, streamer: str, sign
             f"Hype signals: {signals}\n")
     if game_hints:
         user += f"\nWhat makes a good clip in this game:\n{game_hints}\n"
+    if "<<" in transcript_text:
+        user += NOTES_LEGEND
     user += f"\nTranscript:\n{transcript_text or '(no speech detected)'}"
-    res = chat_json(system, user, temperature=0.2)
-    if not isinstance(res, dict):
-        return None
-    try:
-        res["start"] = float(res.get("start", 0))
-        res["end"] = float(res.get("end", window_len))
-        res["score"] = combine_score(res)
-        res["punch_time"] = float(res.get("punch_time", (res["start"] + res["end"]) / 2))
-    except (TypeError, ValueError):
-        return None
-    return res
+    for temp in (0.2, 0.5):  # 2e essai si la reponse est illisible (comme pour la traduction)
+        res = chat_json(system, user, temperature=temp)
+        if not isinstance(res, dict):
+            continue
+        try:
+            res["start"] = float(res.get("start", 0))
+            res["end"] = float(res.get("end", window_len))
+            res["score"] = combine_score(res)
+            res["punch_time"] = float(res.get("punch_time", (res["start"] + res["end"]) / 2))
+        except (TypeError, ValueError):
+            continue
+        return res
+    return None
 
 TRANSLATE_SYSTEM = """You are a professional subtitle translator for gaming livestream clips.
 Translate the TARGET line into natural, casual spoken ENGLISH (gamer slang ok, keep swear words mild).

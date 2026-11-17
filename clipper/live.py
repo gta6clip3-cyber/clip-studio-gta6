@@ -13,7 +13,7 @@ import numpy as np
 from . import config
 from .audio import SR, loudness_of_pcm
 from .chat import hype_weight, live_chat
-from .highlights import Candidate, score_timeline
+from .highlights import AFTER, CHAT_DELAY, Candidate, score_timeline
 from .jobs import Job
 from .pipeline import analyse_moments, finish_clip
 from .sources import get_info, platform_of
@@ -88,6 +88,24 @@ def _cut_window(segs: list[tuple[Path, float, float]], start: float, end: float,
     return use[0][1]
 
 
+def _follow_chat(job: Job, rec: LiveRecorder, chat_msgs: list, live_over: threading.Event, retry_s: float = 30) -> None:
+    """Lit le chat tant que le live tourne, et se reconnecte apres une coupure (reseau, chat ferme)."""
+    warned = False
+    while not live_over.is_set():
+        try:
+            # shortcut: live_over n'est vu qu'a l'arrivee d'un message (le lecteur de chat-downloader ne rend pas la
+            # main entre deux messages) ; a revoir si des fils restent ouverts apres beaucoup de lives a la suite
+            for msg in live_chat(job.url):
+                if live_over.is_set():
+                    return
+                chat_msgs.append((time.time() - rec.t0, msg))
+        except Exception as e:
+            if not warned:
+                job.say(f"Chat live indisponible ({e}) : audio uniquement, nouvel essai toutes les {retry_s:.0f} s")
+                warned = True
+        live_over.wait(retry_s)
+
+
 def run_live(job: Job) -> None:
     cfg = config.load()
     info = get_info(job.url)
@@ -96,7 +114,8 @@ def run_live(job: Job) -> None:
     job.options["stream_title"] = info["title"]
     job.options["stream_context"] = info.get("context", "")
     from . import games
-    job.options["profile"] = games.detect(info["title"], info.get("context", ""))
+    # un live Twitch n'annonce pas son jeu : le mode automatique, lui, le connait (job.options["game"])
+    job.options["profile"] = games.detect(info["title"], info.get("context", ""), job.options.get("game", ""))
     if not info["is_live"]:
         job.say("Ce lien n'est pas en live actuellement -> traitement comme une rediffusion.")
         from .pipeline import run_vod
@@ -108,17 +127,8 @@ def run_live(job: Job) -> None:
 
     # --- chat en temps reel
     chat_msgs: list[tuple[float, str]] = []
-
-    def chat_loop():
-        try:
-            for msg in live_chat(job.url):
-                if job.stopped:
-                    break
-                chat_msgs.append((time.time() - rec.t0, msg))
-        except Exception as e:
-            job.say(f"Chat live indisponible ({e}) : audio uniquement")
-
-    threading.Thread(target=chat_loop, daemon=True).start()
+    live_over = threading.Event()
+    threading.Thread(target=_follow_chat, args=(job, rec, chat_msgs, live_over), daemon=True).start()
 
     loud: dict[int, float] = {}
     done_segs: set[str] = set()
@@ -182,11 +192,13 @@ def run_live(job: Job) -> None:
                 continue
             cand = Candidate(peak=peak - file_t0, score=float(score[i]), start=w_start - file_t0,
                              end=w_end - file_t0, reasons=reasons)
-            win_msgs = [(t - file_t0, m) for t, m in chat_msgs if w_start - 5 <= t <= w_end]
+            win_msgs = [(t - file_t0, m) for t, m in chat_msgs if w_start - 5 <= t <= w_end + CHAT_DELAY + AFTER]
+            # signaux de la fenetre, mesures sur les 15 dernieres minutes du live (index 0 = debut du fichier)
+            win_parts = {k: v[max(0, int(file_t0) - lo):] for k, v in parts.items()}
 
-            def worker(cand=cand, win=win, idx=clip_index, win_msgs=win_msgs):
+            def worker(cand=cand, win=win, idx=clip_index, win_msgs=win_msgs, win_parts=win_parts):
                 try:
-                    moments = analyse_moments(job, win, win_msgs, streamer, cfg, 1, cands=[cand])
+                    moments = analyse_moments(job, win, win_msgs, streamer, cfg, 1, cands=[cand], parts=win_parts)
                     moments = [m for m in moments if m.meta.get("score", 6) >= 6]
                     if not moments:
                         job.say(f"Clip {idx} juge pas assez fort par l'IA, ignore.")
@@ -206,6 +218,7 @@ def run_live(job: Job) -> None:
             th.start()
             pending.append(th)
     finally:
+        live_over.set()  # arrete aussi le fil du chat (avant, il continuait apres la fin du live)
         rec.stop()
         for th in pending:
             th.join(timeout=900)

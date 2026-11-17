@@ -1,11 +1,13 @@
 """Genere des fichiers audio de test (voix de synthese Windows) : dialogues a plusieurs voix, francais, anglais."""
 from __future__ import annotations
 
+import shutil
 import subprocess
 import wave
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from clipper.utils import tool
 
@@ -21,6 +23,8 @@ VOICES = {
 
 
 def _tts(text: str, voice: str, out: Path) -> None:
+    if not shutil.which("powershell"):  # voix de synthese de Windows : ces tests-la sont sautes ailleurs
+        pytest.skip("voix de synthese Windows absentes")
     t = text.replace("'", "''")
     ps = (f"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
           f"$s.SelectVoice('{voice}'); $s.Rate = 1; "

@@ -115,7 +115,7 @@ def run_auto(job: Job) -> None:
                 del watching[k]
         for s in lives[:top_n]:
             if s["url"] not in watching:
-                lj = Job(kind="live", url=s["url"], options={"auto": True})
+                lj = Job(kind="live", url=s["url"], options={"auto": True, "game": config.load()["game_name"]})
                 manager.submit(lj, run_live, queued=False)
                 watching[s["url"]] = lj
                 job.say(f"-> {s['streamer']} ({s['viewers']} viewers) surveille")

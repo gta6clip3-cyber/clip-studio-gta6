@@ -20,7 +20,16 @@ _lock = threading.Lock()
 
 
 def _add_cuda_dlls() -> None:
-    """Rend visibles les DLL CUDA installees via pip (nvidia-cublas / nvidia-cudnn)."""
+    """Rend visibles les bibliotheques CUDA installees via pip (nvidia-cublas / nvidia-cudnn)."""
+    if os.name != "nt":  # Linux : le systeme ne les cherche pas dans le venv, on les charge d'avance
+        import ctypes
+        libs = sorted(Path(sys.prefix).glob("lib/python*/site-packages/nvidia/*/lib/lib*.so.*"))
+        for lib in libs + libs:  # 2 passes : certaines ont besoin d'une autre, chargee apres elles
+            try:
+                ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                pass
+        return
     base = Path(sys.prefix) / "Lib" / "site-packages" / "nvidia"
     if not base.exists():
         return
@@ -129,5 +138,8 @@ def sentences(segs: list[dict], max_words: int = 28) -> list[dict]:
     return out
 
 
-def as_text(tr: dict, origin: float = 0.0) -> str:
-    return "\n".join(f"[{s['start'] - origin:6.1f}-{s['end'] - origin:6.1f}] {s['text']}" for s in tr["segments"])
+def as_text(tr: dict, origin: float = 0.0, notes: list[str] | None = None) -> str:
+    """Transcription horodatee ; `notes` (une par phrase, voir highlights.reactions) est ajoute en fin de ligne."""
+    segs = tr["segments"]
+    return "\n".join(f"[{s['start'] - origin:6.1f}-{s['end'] - origin:6.1f}] {s['text']}" + (f"  <<{n}>>" if n else "")
+                     for s, n in zip(segs, notes or [""] * len(segs)))

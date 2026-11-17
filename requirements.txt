@@ -3,12 +3,13 @@ fastapi
 uvicorn
 requests
 numpy
-opencv-python
+opencv-python-headless
 pillow
 faster-whisper
 sherpa-onnx
 onnxruntime
 yt-dlp
+streamlink
 chat-downloader
 google-api-python-client
 google-auth-oauthlib

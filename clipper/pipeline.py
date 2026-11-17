@@ -6,6 +6,7 @@ import re
 import shutil
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -13,7 +14,7 @@ from typing import Callable
 from . import config, games, llm, speakers, transcribe
 from .audio import loudness_per_second
 from .chat import download_vod_chat
-from .highlights import Candidate, pick_candidates, score_timeline
+from .highlights import Candidate, pick_candidates, reactions, score_timeline
 from .jobs import Job, manager
 from .layout import compute_layout
 from .render import make_cover, render_clip
@@ -91,12 +92,16 @@ def _title_with_hints(job: Job) -> str:
 
 
 def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: dict,
-                    max_clips: int, cands: list[Candidate] | None = None) -> list[Moment]:
-    """Transcrit + fait juger par l'IA chaque candidat, et renvoie les meilleurs moments."""
+                    max_clips: int, cands: list[Candidate] | None = None, parts: dict | None = None) -> list[Moment]:
+    """Transcrit + fait juger par l'IA chaque candidat, et renvoie les meilleurs moments.
+
+    `parts` : signaux par seconde (voir score_timeline) alignes sur `audio`. Le mode direct les fournit avec ses
+    candidats : ils y sont mesures sur 15 min d'historique, pas sur la seule fenetre du clip."""
     if cands is None:
         loud = loudness_per_second(audio, audio.with_suffix(".loud.npy"))
         score, parts = score_timeline(loud, messages)
-        cands = pick_candidates(score, parts, cfg["candidates_to_analyze"])
+        # toujours au moins 2x plus de candidats que de clips demandes, sinon l'IA n'a rien a trier
+        cands = pick_candidates(score, parts, max(cfg["candidates_to_analyze"], 2 * max_clips + 2))
     job.say(f"{len(cands)} moments candidats trouves, transcription...", 0.35)
     if not cands:
         return []
@@ -132,7 +137,10 @@ def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: d
         if use_llm:
             with manager.gpu_lock:
                 prof = job.options.get("profile")
-                j = llm.judge_candidate(transcribe.as_text(tr, c.start), c.end - c.start, streamer, c.reasons,
+                # l'IA lit le texte + ce qu'il ne montre pas : phrases criees, reactions du chat
+                notes = reactions(tr["segments"], parts, messages) if parts else None
+                script = transcribe.as_text(tr, c.start, notes)
+                j = llm.judge_candidate(script, c.end - c.start, streamer, c.reasons,
                                         _title_with_hints(job),
                                         game_hints=(games.judge_hints(prof) + "\n\n" + games.judge_examples(prof)).strip())
             job.say(f"Analyse IA {i + 1}/{len(cands)} : note {j['score'] if j else '?'} - "
@@ -287,11 +295,6 @@ def finish_clip(job: Job, m: Moment, audio: Path, video: VideoProvider, streamer
         "language": m.tr["language"], "published": {},
     }
     (folder / "meta.json").write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
-    for tmp in folder.glob("src*"):
-        try:
-            tmp.unlink()
-        except OSError:
-            pass
     job.clips.append(folder.name)
     job.say(f"Clip {index} pret : {title}")
 
@@ -335,7 +338,7 @@ def _process_vod(job: Job, info: dict, work: Path, cfg: dict, max_clips: int) ->
     messages: list = []
 
     def get_chat():
-        messages.extend(download_vod_chat(job.url, work / "chat.json"))
+        messages.extend(download_vod_chat(job.url, work / "chat.json", info["duration"]))
 
     t = threading.Thread(target=get_chat, daemon=True)
     t.start()
@@ -353,22 +356,29 @@ def _process_vod(job: Job, info: dict, work: Path, cfg: dict, max_clips: int) ->
         job.say("Aucun moment fort trouve.")
         return
 
-    def provider(s: float, e: float, folder: Path) -> tuple[Path, float]:
-        pad = 4.0
-        src = download_section(job.url, s - pad, e + 2.0, folder / "src.mp4")
-        off = align_offset(audio, s, src, search=6.0) if s > pad else s
-        return src, off
+    # les passages video se telechargent en avance (2 a la fois) pendant que le GPU traduit et monte les clips
+    pad = 4.0
+    pool = ThreadPoolExecutor(max_workers=2)
+    srcs = [pool.submit(download_section, job.url, m.start - pad, m.end + 2.0, work / f"src_{i}.mp4")
+            for i, m in enumerate(moments, 1)]
+    try:
+        for i, m in enumerate(moments, 1):
+            if job.stopped:
+                return
 
-    for i, m in enumerate(moments, 1):
-        if job.stopped:
-            return
-        job.progress = 0.75 + 0.25 * (i - 1) / len(moments)
-        try:
-            finish_clip(job, m, audio, provider, streamer, info["platform"], info["webpage_url"], i)
-        except Exception as e:
-            for d in config.OUTPUT.glob(f"*_{slug(streamer, 20)}_{i}"):
-                if d.is_dir() and not (d / "clip.mp4").exists():
-                    shutil.rmtree(d, ignore_errors=True)
-            job.say(f"Clip {i} echoue : {e}")
-            log.exception("clip")
+            def provider(s: float, e: float, folder: Path, fut=srcs[i - 1]) -> tuple[Path, float]:
+                src = fut.result()
+                return src, (align_offset(audio, s, src, search=6.0) if s > pad else s)
+
+            job.progress = 0.75 + 0.25 * (i - 1) / len(moments)
+            try:
+                finish_clip(job, m, audio, provider, streamer, info["platform"], info["webpage_url"], i)
+            except Exception as e:
+                for d in config.OUTPUT.glob(f"*_{slug(streamer, 20)}_{i}"):
+                    if d.is_dir() and not (d / "clip.mp4").exists():
+                        shutil.rmtree(d, ignore_errors=True)
+                job.say(f"Clip {i} echoue : {e}")
+                log.exception("clip")
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)  # arret demande : on n'attend que les telechargements en cours
     job.say(f"Termine : {len(job.clips)} clip(s) dans le dossier output.", 1.0)
