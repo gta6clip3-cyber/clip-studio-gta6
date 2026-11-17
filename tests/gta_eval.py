@@ -38,7 +38,7 @@ SHOTS = "--shots" in sys.argv
 
 
 def evaluate(items: list[dict], verbose: bool = False) -> dict:
-    pos, neg, found = [], [], []
+    pos, neg, found, raw_neg = [], [], [], []
     for it in items:
         j = llm.judge_candidate(text_of(it), 75, "streamer", "chat=unknown, hype=unknown, audio=unknown",
                                 "GTA RP live stream (French)",
@@ -46,6 +46,8 @@ def evaluate(items: list[dict], verbose: bool = False) -> dict:
                                 if HINTS else "")
         s = j["score"] if j else 5.0
         (pos if it["positive"] else neg).append(s)
+        if j and not it["positive"]:
+            raw_neg.append(llm.criteria(j))
         found.append(j.get("game", "") if j else "")
         if verbose:
             print(f"  {'POS' if it['positive'] else 'neg'} {it['id']} {it['start']:6d} -> {s:4.1f}  "
@@ -53,7 +55,9 @@ def evaluate(items: list[dict], verbose: bool = False) -> dict:
     gta = np.mean([("gta" in g.lower() or "grand theft" in g.lower()) for g in found])
     return {"auc": auc(pos, neg), "pos": float(np.mean(pos)), "neg": float(np.mean(neg)),
             "kept_pos": float(np.mean(np.array(pos) >= 6)), "kept_neg": float(np.mean(np.array(neg) >= 6)),
-            "game_ok": float(gta), "n": (len(pos), len(neg))}
+            "game_ok": float(gta), "n": (len(pos), len(neg)),
+            # decalage qui met 5/10 la ou 1 moment ordinaire sur 10 arrive (5/10 = criteres reunis a 3.2)
+            "severity": round(3.2 - float(np.percentile(raw_neg, 90)), 1) if raw_neg else 0.0}
 
 
 if __name__ == "__main__":
@@ -61,3 +65,7 @@ if __name__ == "__main__":
     print(f"AUC {r['auc']:.2f} | note moyenne viral {r['pos']:.1f} vs ordinaire {r['neg']:.1f} | "
           f"gardes (>=6) viral {r['kept_pos']:.0%} / ordinaire {r['kept_neg']:.0%} | jeu reconnu {r['game_ok']:.0%} "
           f"| n={r['n']}")
+    from clipper import config  # noqa: E402
+    model = config.load()["ollama_model"]
+    print(f"Severite de {model} : decalage conseille {r['severity']:+.1f} (regle : {llm.SEVERITY.get(model, 0.0):+.1f}, "
+          f"dans SEVERITY de clipper/llm.py). A refaire si on change de modele.")

@@ -9,6 +9,7 @@ import json
 import random
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -25,12 +26,17 @@ POSITIVE = {  # compilations de moments forts (id YouTube -> duree)
     "GO1CjxTtVSo": 923,    # moments les plus droles de Flashback
     "fhD05Jnjbls": 499,    # best of JP
     "GQLlivhNkh8": 665,    # pires rages Flashland
+    "Pge-8Isvbeg": 1023,   # meilleurs moments de l'annee sur Flashback
+    "YOZh-2YI2Nk": 1477,   # best of GrandLine
+    "AfLqDeUFElk": 1014,   # top 30 des clips GTA RP les plus vus de la semaine
 }
 NEGATIVE = {  # lives complets (rediffusions)
     "iE2OzgbYtnw": 17033,  # Anyme live Grand Line
     "6g2xs1zTkGU": 18991,  # Domingo Flashback
     "QitACAyuoic": 18432,  # JL Tomy
     "uRNFKrlcTHs": 19847,  # Noto Flashback
+    "PUrupovody8": 14511,  # Medja Flashback
+    "3-Oa9ZELW0c": 8205,   # Kameto Flashback
 }
 
 
@@ -57,23 +63,24 @@ def fetch(vid: str, start: int) -> Path | None:
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    jobs = [(v, d, True, 4) for v, d in POSITIVE.items()] + [(v, d, False, 5) for v, d in NEGATIVE.items()]
-    for vid, dur, pos, n in jobs:
-        for start in windows(vid, dur, n, pos):
-            out = OUT / f"{'pos' if pos else 'neg'}_{vid}_{start}.json"
-            if out.exists():
-                continue
-            audio = fetch(vid, start)
-            if not audio:
-                continue
-            tr = transcribe.transcribe(audio, 0, WIN)
-            out.write_text(json.dumps({"id": vid, "start": start, "positive": pos, "language": tr["language"],
-                                       "segments": tr["segments"]}, ensure_ascii=False), encoding="utf-8")
-            n_words = sum(len(s["words"]) for s in tr["segments"])
-            print(f"{'POS' if pos else 'neg'} {vid} {start:6d}s  {n_words:3d} mots ({tr['language']})", flush=True)
-            for p in audio.parent.iterdir():
-                p.unlink()
-            audio.parent.rmdir()
+    # compilations : jusqu'a 8 passages qui ne se recouvrent pas ; lives : 10 passages au hasard
+    todo = [(v, s, True) for v, d in POSITIVE.items() for s in windows(v, d, min(8, (d - 165) // WIN), True)]
+    todo += [(v, s, False) for v, d in NEGATIVE.items() for s in windows(v, d, 10, False)]
+    todo = [(v, s, pos, OUT / f"{'pos' if pos else 'neg'}_{v}_{s}.json") for v, s, pos in todo]
+    todo = [t for t in todo if not t[3].exists()]
+    with ThreadPoolExecutor(6) as pool:  # les telechargements en meme temps, la transcription ensuite
+        audios = list(pool.map(lambda t: fetch(t[0], t[1]), todo))
+    for (vid, start, pos, out), audio in zip(todo, audios):
+        if not audio:
+            continue
+        tr = transcribe.transcribe(audio, 0, WIN)
+        out.write_text(json.dumps({"id": vid, "start": start, "positive": pos, "language": tr["language"],
+                                   "segments": tr["segments"]}, ensure_ascii=False), encoding="utf-8")
+        n_words = sum(len(s["words"]) for s in tr["segments"])
+        print(f"{'POS' if pos else 'neg'} {vid} {start:6d}s  {n_words:3d} mots ({tr['language']})", flush=True)
+        for p in audio.parent.iterdir():
+            p.unlink()
+        audio.parent.rmdir()
     transcribe.unload()
 
 

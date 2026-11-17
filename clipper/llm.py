@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 
 import requests
 
@@ -57,10 +58,16 @@ def chat_json(system: str, user: str, temperature: float = 0.4, keep_alive: str 
 
 
 def unload() -> None:
+    """Decharge le modele et attend que la carte graphique soit vraiment libre : Ollama repond tout de suite mais
+    ne libere la memoire qu'un instant plus tard, et Whisper charge trop tot retombait sur le processeur."""
     cfg = config.load()
     try:
         requests.post(cfg["ollama_url"] + "/api/generate",
                       json={"model": cfg["ollama_model"], "keep_alive": 0}, timeout=10)
+        for _ in range(25):  # 5 s au plus
+            if not requests.get(cfg["ollama_url"] + "/api/ps", timeout=3).json().get("models"):
+                break
+            time.sleep(0.2)
     except Exception:
         pass
 
@@ -104,8 +111,14 @@ Use the notes to rate "reaction" and to place punch_time.
 """
 
 
-def combine_score(res: dict) -> float:
-    """Note finale 1-10 calculee a partir des criteres (plus stable que la note globale du modele)."""
+# Certains modeles notent bien plus severement que d'autres : sans correction, presque toutes leurs notes tombent a
+# 1/10. Ce decalage, mesure sur de vrais passages GTA RP (tests/gta_eval.py le calcule), remet 5/10 au meme niveau :
+# environ 1 moment ordinaire sur 10 l'atteint. Un modele absent de la liste garde la formule d'origine.
+SEVERITY = {"qwen3.5:9b": 3.0}
+
+
+def criteria(res: dict) -> float:
+    """Les 4 criteres du modele reunis en un seul nombre (avant decalage et mise sur 10)."""
     def g(k, d=5.0):
         try:
             return max(0.0, min(10.0, float(res.get(k, d))))
@@ -114,7 +127,15 @@ def combine_score(res: dict) -> float:
     s = 0.42 * g("payoff") + 0.30 * g("reaction") + 0.28 * g("standalone") - 0.30 * g("boring")
     if not str(res.get("best_line", "")).strip():
         s -= 0.8  # pas de phrase forte = rarement un bon clip
-    return round(max(1.0, min(10.0, 1.0 + s * 1.25)), 1)
+    return s
+
+
+def combine_score(res: dict, model: str = "", clip: bool = True) -> float:
+    """Note finale 1-10 calculee a partir des criteres (plus stable que la note globale du modele).
+
+    clip=False : sans les bornes 1 et 10, pour departager les candidats qui ont tous 10/10."""
+    s = 1.0 + (criteria(res) + SEVERITY.get(model, 0.0)) * 1.25
+    return round(max(1.0, min(10.0, s)), 1) if clip else s
 
 
 def judge_candidate(transcript_text: str, window_len: float, streamer: str, signals: str,
@@ -136,7 +157,7 @@ def judge_candidate(transcript_text: str, window_len: float, streamer: str, sign
         try:
             res["start"] = float(res.get("start", 0))
             res["end"] = float(res.get("end", window_len))
-            res["score"] = combine_score(res)
+            res["score"] = combine_score(res, cfg["ollama_model"])
             res["punch_time"] = float(res.get("punch_time", (res["start"] + res["end"]) / 2))
         except (TypeError, ValueError):
             continue

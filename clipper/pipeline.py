@@ -109,6 +109,7 @@ def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: d
     lang = None
     votes: dict[str, int] = {}
     with manager.gpu_lock:
+        llm.unload()  # l'IA et Whisper ne tiennent pas ensemble dans 8 Go : sans ca, Whisper passe sur le processeur
         for i, c in enumerate(cands):
             if job.stopped:
                 return []
@@ -148,7 +149,7 @@ def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: d
         s, e, punch = _clamp_bounds(c, j, cfg, tr)
         text = " ".join(seg["text"] for seg in tr["segments"])
         meta = j if j else llm.fallback_meta(streamer, text)
-        ai = (j or {}).get("score", 5.0)
+        ai = llm.combine_score(j, cfg["ollama_model"], clip=False) if j else 5.0  # sans plafond : pas d'ex aequo a 10
         if sum(len(seg["words"]) for seg in tr["segments"]) < 8:
             ai -= 1.5  # presque personne ne parle : rarement un bon clip
         rank = 0.7 * ai + 3.0 * (c.score / max_sig)

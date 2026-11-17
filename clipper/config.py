@@ -32,7 +32,7 @@ DEFAULTS: dict = {
     "whisper_device": "cuda",             # "cuda" ou "cpu"
     "whisper_compute_type": "int8_float16",
     "ollama_url": "http://127.0.0.1:11434",
-    "ollama_model": "qwen2.5:7b",
+    "ollama_model": "qwen3.5:9b",         # le mieux classe des 6 modeles mesures ; il lui faut 8 Go de memoire video
 
     # --- Montage ---
     "width": 1080,

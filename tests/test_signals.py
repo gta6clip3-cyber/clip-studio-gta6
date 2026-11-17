@@ -146,6 +146,7 @@ def test_live_notes_use_the_signals_given_with_the_candidate(monkeypatch, tmp_pa
     monkeypatch.setattr(pipeline.transcribe, "transcribe", lambda *a, **k: tr)
     monkeypatch.setattr(pipeline.transcribe, "unload", lambda: None)
     monkeypatch.setattr(pipeline.llm, "available", lambda: True)
+    monkeypatch.setattr(pipeline.llm, "unload", lambda: None)
     monkeypatch.setattr(pipeline.llm, "judge_candidate", lambda text, *a, **k: seen.append(text))
     monkeypatch.setattr(pipeline, "loudness_per_second", lambda *a: 1 / 0)  # ne doit pas etre recalcule en direct
     cfg = {"clip_min_seconds": 40, "clip_max_seconds": 75, "clip_target_seconds": 60}
@@ -206,6 +207,27 @@ def test_judge_explains_notes_only_when_present_and_retries(monkeypatch):
     assert "<<notes>>" in prompts[0]
     llm.judge_candidate("[   0.0-   2.0] NON !", 85, "S", "audio=3.0")
     assert "<<notes>>" not in prompts[-1]  # sans note : le message envoye a l'IA est le meme qu'avant
+
+
+def test_score_is_shifted_only_for_models_measured_as_harsher():
+    res = {"payoff": 4, "reaction": 3, "standalone": 4, "boring": 7, "best_line": "x"}
+    base = llm.combine_score(res)
+    assert base == llm.combine_score(res, "qwen2.5:7b") == llm.combine_score(res, "modele-inconnu") == 3.0
+    shift = llm.SEVERITY["qwen3.5:9b"]
+    assert llm.combine_score(res, "qwen3.5:9b") == round(base + 1.25 * shift, 1)  # meme formule, decalee
+    top = {"payoff": 9, "reaction": 9, "standalone": 9, "boring": 1, "best_line": "x"}
+    assert llm.combine_score(top, "qwen3.5:9b") == 10.0 < llm.combine_score(top, "qwen3.5:9b", clip=False)
+
+
+def test_unload_waits_until_ollama_has_freed_the_card(monkeypatch):
+    from types import SimpleNamespace
+    loaded = [[{"name": "m"}], [{"name": "m"}], []]  # Ollama garde encore le modele 2 fois, puis plus rien
+    asked = []
+    monkeypatch.setattr(llm.requests, "post", lambda url, json=None, timeout=None: asked.append(json["keep_alive"]))
+    monkeypatch.setattr(llm.requests, "get", lambda url, timeout=None: SimpleNamespace(json=lambda: {"models": loaded.pop(0)}))
+    monkeypatch.setattr(llm.time, "sleep", lambda s: asked.append("attente"))
+    llm.unload()
+    assert asked == [0, "attente", "attente"] and not loaded
 
 
 def test_thinking_is_switched_off_only_for_models_that_think(monkeypatch):

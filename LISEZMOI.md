@@ -5,7 +5,7 @@ détection des moments forts, sous-titres, montage et publication. Tout tourne e
 
 ## Installation (une seule fois, Windows)
 1. Installe **Python 3.13**, **[FFmpeg](https://www.gyan.dev/ffmpeg/builds/)** (ajouté au PATH) et
-   **[Ollama](https://ollama.com)**, puis télécharge le modèle d'IA : `ollama pull qwen2.5:7b`.
+   **[Ollama](https://ollama.com)**, puis télécharge le modèle d'IA : `ollama pull qwen3.5:9b`.
    Une carte graphique NVIDIA est conseillée (sinon mets `"whisper_device": "cpu"` dans `data/config.json`).
 2. Dans le dossier du projet :
    ```
@@ -57,7 +57,7 @@ Chaque clip est rangé dans `output/<date>_<streamer>_<n>/` :
    Le chat des rediffusions Twitch est lu en 4 tranches à la fois, celui des rediffusions YouTube avec yt-dlp.
    En direct, le chat Twitch est lu en continu et se reconnecte tout seul après une coupure.
 2. **Audio** : pics de volume (cris, rires, explosions).
-3. **IA locale (Ollama + Qwen 2.5)** : lit la transcription de chaque candidat, note son potentiel viral de 1 à 10, choisit le début et la fin exacts, puis écrit le titre, l'accroche, la légende et les hashtags en anglais.
+3. **IA locale (Ollama + Qwen 3.5)** : lit la transcription de chaque candidat, note son potentiel viral de 1 à 10, choisit le début et la fin exacts, puis écrit le titre, l'accroche, la légende et les hashtags en anglais.
    Elle reçoit aussi ce que le texte ne montre pas : quelles phrases sont criées (`<<LOUD>>`) et ce que le chat écrit juste après chaque phrase (`<<chat: KEKW x12>>`).
 4. **Whisper large-v3 (GPU)** : transcrit la parole ; les sous-titres sont traduits en anglais.
 
@@ -83,17 +83,30 @@ Réglages utiles dans `data/config.json` :
 - `"game_widen": 1.3` : plus grand = on voit plus de la scène de jeu.
 
 ## Entraînement GTA
-L'IA a été entraînée sur de vrais extraits GTA RP français : 24 moments de compilations « best of » (moments
-viraux choisis par des humains : Anyme, Walid, Flashback, Flashland…) contre 20 passages pris au hasard dans des lives
-complets. Elle connaît maintenant ce qui fait un bon clip GTA (courses-poursuites, mensonges aux flics, braquages
-ratés, punchlines RP…), ce qui est banal (logistique, menus, conduite tranquille), et le vocabulaire GTA RP
+L'IA a été réglée sur de vrais extraits GTA RP français : des passages de compilations « best of » (moments viraux
+choisis par des humains : Anyme, Walid, Flashback, GrandLine…) contre des passages pris au hasard dans des lives
+complets. Elle connaît ce qui fait un bon clip GTA (courses-poursuites, mensonges aux flics, braquages ratés,
+punchlines RP…), ce qui est banal (logistique, menus, conduite tranquille), et le vocabulaire GTA RP
 (keufs, braquage, comico, garde à vue…). Ces connaissances sont dans `clipper/games.py`.
-Mesure sur des vidéos jamais vues : elle sépare les moments viraux des ordinaires avec une AUC de 0,81 (0,65 avant)
-et rejette 87 à 93 % des moments ordinaires (10 % avant).
-Pour refaire la mesure : `tests\gta_build.py` puis `tests\gta_eval.py --test-only --shots`.
+
+**Mesure** sur 101 passages jamais vus (51 viraux, 50 ordinaires). Le modèle retenu, `qwen3.5:9b`, sépare les moments
+viraux des ordinaires avec une AUC de 0,82 (0,5 = hasard, 1 = parfait) et reconnaît le jeu 99 fois sur 100.
+C'est le mieux classé des six modèles gratuits essayés (`qwen2.5:7b` 0,79 ; `granite4.2:8b` 0,79 ;
+`gemma4:e4b-it-qat` 0,78 ; `qwen3.5:4b` 0,75 ; `ministral-3:8b` 0,72), mais sur 101 passages ces écarts restent dans la
+marge d'erreur. Avec lui, une rediffusion (note ≥ 5) garde 51 % des moments viraux et rejette 90 % des ordinaires ;
+le direct (note ≥ 6) en garde 43 % et en rejette 96 %.
+
+`qwen3.5:9b` a besoin de 8 Go de mémoire vidéo. Avec moins, mets `"ollama_model": "qwen2.5:7b"` dans
+`data/config.json` et lance `ollama pull qwen2.5:7b`.
+
+**Changer de modèle** : chaque modèle note plus ou moins sévèrement. `tests/gta_eval.py` affiche à la fin le décalage
+à mettre dans `SEVERITY` (`clipper/llm.py`) pour que 5/10 garde le même sens : un moment ordinaire sur dix l'atteint.
+
+Pour refaire la mesure : `tests/gta_build.py` (télécharge et transcrit les passages, environ 20 minutes) puis
+`tests/gta_eval.py --test-only --shots`. Pour comparer des modèles : `tests/gta_compare_models.py qwen2.5:7b qwen3.5:9b`.
 
 ## Tests
-`.venv\Scripts\python.exe -m pytest tests` lance la cinquantaine de tests (sous-titres, langue, voix, IA locale).
+`.venv\Scripts\python.exe -m pytest tests` lance environ 80 tests (sous-titres, langue, voix, signaux, IA locale).
 `.venv\Scripts\python.exe tests\e2e_vod.py <lien> 2` fait un vrai essai complet sur une vidéo (sans publier).
 `.venv\Scripts\python.exe tests\bench_build.py` puis `tests\bench_eval.py` : banc d'essai des voix (vraies voix de streamers).
 

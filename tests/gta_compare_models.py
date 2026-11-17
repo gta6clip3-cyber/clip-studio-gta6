@@ -1,4 +1,4 @@
-"""Compare les modeles d'IA locaux sur le test GTA : python tests/gta_compare_models.py qwen2.5:7b qwen3:8b"""
+"""Compare les modeles d'IA locaux sur le test GTA : python tests/gta_compare_models.py qwen2.5:7b qwen3.5:9b"""
 import sys
 import time
 from pathlib import Path
