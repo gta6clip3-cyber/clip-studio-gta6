@@ -60,6 +60,7 @@ DEFAULTS: dict = {
     "live_buffer_minutes": 8,
     "live_cooldown_seconds": 150,
     "live_spike_threshold": 2.6,
+    "live_min_ai_score": 6,               # note IA minimale (sur 10) pour garder un clip en live
 
     # --- Decouverte ---
     "twitch_client_id": "",
@@ -72,6 +73,7 @@ DEFAULTS: dict = {
     "auto_check_minutes": 5,              # mode auto : recherche de plus gros lives toutes les N minutes
     "auto_swap_margin": 0.2,              # un live remplace le plus petit suivi s'il a 20 % de spectateurs en plus
     "auto_min_watch_minutes": 15,         # ... et si ce dernier est suivi depuis au moins 15 min
+    "tiktok_app_approved": False,         # True une fois l'app validee par TikTok (publication publique)
     "tiktok_auto_draft": False,          # deposer chaque nouveau clip dans les brouillons TikTok (rien n'est publie)
     "publish_youtube": False,
     "publish_tiktok": False,

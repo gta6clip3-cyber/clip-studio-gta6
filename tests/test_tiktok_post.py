@@ -78,3 +78,41 @@ def test_draft_goes_to_inbox_and_is_recorded(tmp_path, monkeypatch):
     assert "post_info" not in sent["init"]  # brouillon : aucun choix de publication envoye, rien n'est publie
     meta = json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))
     assert meta["published"]["tiktok_draft"]["ok"] is True
+
+
+def test_tiktok_copy_starts_with_the_cover(tmp_path):
+    """TikTok n'accepte pas de miniature par l'API pour un brouillon : la 1re image de la video est la couverture."""
+    from PIL import Image
+    from clipper.utils import run, tool
+    video = tmp_path / "clip.mp4"
+    assert tiktok.with_cover(video) == video  # pas de cover.jpg : clip tel quel
+    run([tool("ffmpeg"), "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=1080x1920:r=30:d=1",
+         "-f", "lavfi", "-i", "sine=d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(video)])
+    Image.new("RGB", (1080, 1920), (255, 0, 0)).save(tmp_path / "cover.jpg")
+    out = tiktok.with_cover(video)
+    assert out.name == "clip_tiktok.mp4"
+    run([tool("ffmpeg"), "-y", "-v", "error", "-i", str(out), "-frames:v", "1", str(tmp_path / "f0.png")])
+    run([tool("ffmpeg"), "-y", "-v", "error", "-ss", "0.5", "-i", str(out), "-frames:v", "1", str(tmp_path / "f1.png")])
+    r, g, b = Image.open(tmp_path / "f0.png").convert("RGB").getpixel((540, 960))
+    assert r > 200 and b < 60          # 1re image : la couverture (rouge)
+    r, g, b = Image.open(tmp_path / "f1.png").convert("RGB").getpixel((540, 960))
+    assert b > 200 and r < 60          # ensuite : le clip (bleu)
+    assert tiktok.with_cover(video) == out  # deja faite : reutilisee
+
+
+def test_unapproved_app_only_offers_only_me(monkeypatch):
+    """Tant que TikTok n'a pas valide l'app, il refuse le public : l'ecran ne propose que « Moi uniquement »."""
+    class R:
+        def json(self):
+            return {"data": {"privacy_level_options": ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]},
+                    "error": {"code": "ok"}}
+
+    monkeypatch.setattr(tiktok, "_refresh", lambda cfg: "tok")
+    monkeypatch.setattr(tiktok.requests, "post", lambda *a, **k: R())
+    monkeypatch.setattr(tiktok.config, "load", lambda: {"tiktok_app_approved": False})
+    info = tiktok.creator_info()
+    assert info["privacy_level_options"] == ["SELF_ONLY"] and info["unaudited"]
+    with pytest.raises(ValueError):
+        tiktok.check_options({"privacy_level": "PUBLIC_TO_EVERYONE"}, info, 60)
+    monkeypatch.setattr(tiktok.config, "load", lambda: {"tiktok_app_approved": True})
+    assert "PUBLIC_TO_EVERYONE" in tiktok.creator_info()["privacy_level_options"]

@@ -52,13 +52,82 @@ def _youtube_vod_chat(url: str, folder: Path) -> list[tuple[float, str]]:
     file = folder / "ytchat.live_chat.json"
     out: list[tuple[float, str]] = []
     for line in file.read_text(encoding="utf-8").splitlines() if file.exists() else []:  # pas de fichier = pas de chat
-        replay = json.loads(line).get("replayChatItemAction", {})
-        for action in replay.get("actions", []):
-            item = action.get("addChatItemAction", {}).get("item", {}).get("liveChatTextMessageRenderer", {})
-            text = "".join(r.get("text") or _emoji(r.get("emoji", {})) for r in item.get("message", {}).get("runs", []))
-            if text.strip():
-                out.append((int(replay.get("videoOffsetTimeMsec", 0)) / 1000, text))
+        out += _chat_line(line)
     return out
+
+
+def _chat_line(line: str) -> list[tuple[float, str]]:
+    """Une ligne du fichier de chat yt-dlp (rediffusion ou live) -> [(temps, message)]."""
+    try:
+        row = json.loads(line)
+    except ValueError:
+        return []
+    replay = row.get("replayChatItemAction", {})
+    # rediffusion : le temps est dans replayChatItemAction ; live : yt-dlp le met a cote
+    ms = replay.get("videoOffsetTimeMsec", row.get("videoOffsetTimeMsec", 0))
+    out = []
+    for action in replay.get("actions", []):
+        item = action.get("addChatItemAction", {}).get("item", {}).get("liveChatTextMessageRenderer", {})
+        text = "".join(r.get("text") or _emoji(r.get("emoji", {})) for r in item.get("message", {}).get("runs", []))
+        if text.strip():
+            out.append((int(ms or 0) / 1000, text))
+    return out
+
+
+def _youtube_live_chat(url: str, stop=None, poll: float = 1.0) -> Iterator[str]:
+    """Chat d'un live YouTube en direct : yt-dlp ecrit le chat au fur et a mesure dans un fichier, on le lit
+    en continu (chat-downloader ne sait plus lire YouTube). yt-dlp est arrete quand `stop` est leve."""
+    import shutil
+    import subprocess
+    import tempfile
+    import time
+
+    from . import config
+    from .utils import CREATE_NO_WINDOW
+    config.WORK.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="ytlivechat_", dir=config.WORK))
+    err = open(folder / "erreurs.txt", "w", encoding="utf-8")
+    proc = subprocess.Popen(_ytdlp_base() + ["--skip-download", "--write-subs", "--sub-langs", "live_chat",
+                                             "-o", str(folder / "chat"), url],
+                            stdout=subprocess.DEVNULL, stderr=err, creationflags=CREATE_NO_WINDOW)
+    pos, rest, got = 0, b"", 0
+    try:
+        while not (stop is not None and stop.is_set()):
+            files = sorted(folder.glob("chat.live_chat.json*"))
+            data = b""
+            if files:
+                with open(files[0], "rb") as f:
+                    f.seek(pos)
+                    data = f.read()
+                pos += len(data)
+            if data:
+                lines = (rest + data).split(b"\n")
+                rest = lines.pop()  # derniere ligne peut-etre incomplete
+                for line in lines:
+                    for _, text in _chat_line(line.decode("utf-8", "replace")):
+                        got += 1
+                        yield text
+            elif proc.poll() is not None:
+                if not got:
+                    err.flush()
+                    why = (folder / "erreurs.txt").read_text(encoding="utf-8", errors="replace").strip().splitlines()
+                    raise RuntimeError(why[-1] if why else "chat YouTube vide ou desactive")
+                return
+            else:
+                time.sleep(poll)
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        err.close()
+        for _ in range(10):  # Windows libere le fichier un peu apres l'arret de yt-dlp
+            shutil.rmtree(folder, ignore_errors=True)
+            if not folder.exists():
+                break
+            time.sleep(0.5)
 
 
 def _emoji(e: dict) -> str:
@@ -126,9 +195,12 @@ def download_vod_chat(url: str, cache: Path, duration: float = 0.0) -> list[tupl
     return out
 
 
-def live_chat(url: str) -> Iterator[str]:
+def live_chat(url: str, stop=None) -> Iterator[str]:
     """Flux de messages d'un live (bloquant)."""
     channel = re.search(r"twitch\.tv/(\w+)/?(?:[?#].*)?$", url)
+    if platform_of(url) == "youtube":
+        yield from _youtube_live_chat(url, stop)
+        return
     if channel:
         # lecture directe du chat Twitch (IRC) : on saute l'etape "infos du live" de chat-downloader, que Twitch
         # peut refuser du jour au lendemain comme il l'a fait pour les rediffusions

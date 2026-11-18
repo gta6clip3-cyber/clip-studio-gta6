@@ -98,6 +98,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--pink);border-col
 .btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;color:#14101f;background:var(--grad);font-size:14px;text-decoration:none;display:inline-block}
 .btn.sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .btn.sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
+.btn.stop{background:#e5484d;color:#fff}.btn.stop:disabled{opacity:.6;cursor:wait}
 .btn:disabled{opacity:.5;cursor:default}
 .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
 .seg button{background:none;border:0;color:var(--mute);padding:5px 11px;border-radius:7px;cursor:pointer;font-weight:600;font-size:12.5px}
@@ -241,10 +242,12 @@ td img.tr{width:112px;border-radius:6px;display:block}
     <h2>Mode automatique</h2>
     <div class="row">
       <span>Surveiller en continu les</span>
-      <select id="topn"><option>1</option><option>2</option><option selected>3</option><option>5</option></select>
+      <select id="topn"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
       <span>plus gros lives GTA 6 et clipper automatiquement</span>
       <button class="btn sec" id="auto">Lancer</button>
+      <button class="btn stop" id="autostop" style="display:none">Arrêter le mode auto</button>
     </div>
+    <div class="hint" id="autostate" style="display:none"></div>
     <div class="hint">Nécessite les identifiants Twitch gratuits (onglet Paramètres).</div>
   </div>
   <div class="card"><h2>Tâches</h2><div id="jobs"><div class="empty">Aucune tâche pour l'instant.</div></div></div>
@@ -535,7 +538,8 @@ window.openTikTok = async folder => {
           <textarea id="ttcap" maxlength="2200">${esc(meta.caption)}</textarea><div class="meta" id="ttcount"></div></div>
         <div class="f"><label for="ttpriv">Qui peut voir cette vidéo ?</label>
           <select id="ttpriv"><option value="" selected disabled>Choisis la visibilité…</option>
-            ${(info.privacy_level_options || []).map(o => `<option value="${o}">${esc(L[o] || o)}</option>`).join("")}</select></div>
+            ${(info.privacy_level_options || []).map(o => `<option value="${o}">${esc(L[o] || o)}</option>`).join("")}</select>
+          ${info.unaudited ? `<div class="meta" style="margin-top:6px">Ton app est en attente de validation par TikTok : en attendant, il n'accepte la publication directe que si ton <b>compte</b> TikTok est privé. Pour publier tout de suite, utilise plutôt <b>Brouillon TikTok</b>.</div>` : ""}</div>
         <div class="f"><span class="lab">Autoriser les utilisateurs à</span>
           ${inter.map(([k, l, off]) => `<label class="chk ${off ? "off" : ""}"><input type="checkbox" id="tt_${k}" ${off ? "disabled" : ""}>
             <span>${l}${off ? `<small>Désactivé dans les paramètres de ton compte TikTok.</small>` : ""}</span></label>`).join("")}</div>
@@ -596,10 +600,14 @@ window.ttNext = async () => {
   const q = ttQueue(await api("/api/clips").catch(() => [])).filter(c => c.folder !== done);
   if (q.length) openTikTok(q[0].folder); else { closeTikTok(); alert("La file TikTok est vide 🎉"); }
 };
+window.CAPS = {};
 window.ttDraft = async (folder, btn) => {
+  // TikTok n'accepte pas de legende pour un brouillon : on la copie tout de suite, tu n'as qu'a la coller
+  const cap = CAPS[folder] || ""; if (cap) navigator.clipboard.writeText(cap).catch(() => {});
   btn.disabled = true; const o = btn.textContent; btn.textContent = "Envoi au brouillon…";
   try { await api(`/api/clips/${encodeURIComponent(folder)}/tiktok-draft`, {method: "POST"});
-    toast("Clip envoyé dans tes brouillons TikTok. Ouvre l'appli TikTok (notification « Brouillon prêt ») pour le modifier et le publier.", "ok"); }
+    toast("Clip envoyé dans tes brouillons TikTok (la miniature est déjà la bonne)." + (cap ? " La légende est copiée : " +
+      "ouvre la notification « Ton contenu de clip-studio est prêt » et colle-la (Ctrl+V)." : ""), "ok"); }
   catch (e) { toast(e.message, "err"); }
   btn.disabled = false; btn.textContent = o; if (current === "clips") loadClips();
 };
@@ -624,9 +632,28 @@ $("#auto").onclick = async () => {
   try { await api("/api/auto", {method: "POST", body: JSON.stringify({top_n: +$("#topn").value})}); loadJobs(); }
   catch (e) { alert(e.message); }
 };
+$("#autostop").onclick = async () => {
+  if (!autoJob || !confirm("Arrêter le mode auto ?\n\nPlus aucun nouveau clip ne sera lancé. Les clips déjà commencés " +
+      "sont terminés et publiés : attends le message « Tu peux fermer l'app » avant de fermer Clip Studio.")) return;
+  await stopJob(autoJob.id);
+};
+let autoJob = null;
+function autoButtons(jobs) {
+  autoJob = jobs.find(j => j.kind === "auto" && ["en cours", "en attente"].includes(j.status)) || null;
+  const st = $("#autostate");
+  $("#auto").style.display = autoJob ? "none" : "";
+  $("#autostop").style.display = autoJob ? "" : "none";
+  $("#autostop").disabled = !!(autoJob && autoJob.stopping);
+  $("#autostop").textContent = autoJob && autoJob.stopping ? "Arrêt en cours..." : "Arrêter le mode auto";
+  st.style.display = autoJob ? "" : "none";
+  if (autoJob) st.textContent = autoJob.stopping
+    ? "⏳ " + autoJob.step + " Les clips commencés seront publiés."
+    : `🟢 En marche · ${autoJob.clips.length} clip(s) · ${autoJob.step}`;
+}
 const openLogs = new Set();
 async function loadJobs() {
   const jobs = await api("/api/jobs").catch(() => []);
+  autoButtons(jobs);
   if (!jobs.length) return;
   $("#jobs").innerHTML = jobs.map(j => `
     <div class="job"><div class="jt"><span class="tag ${j.kind}">${j.kind === "vod" ? "rediff" : j.kind}</span>
@@ -655,6 +682,7 @@ async function loadClips() {
   $("#clips").innerHTML = list.map(c => {
     const base = `/media/${encodeURIComponent(c.folder)}`, st = byFolder[c.folder];
     const views = st ? Object.entries(st.platforms).map(([k, p]) => `<span style="color:${P[k].c}">${P[k].s} ${fmt(p.views)}</span>`).join("") : "";
+    CAPS[c.folder] = c.caption || "";
     const pub = Object.entries(c.published || {}).map(([k, v]) => {
       const name = k === "tiktok_draft" ? "TikTok (brouillon)" : P[k]?.n || k;
       return `<span class="plb" style="--c:${v.ok ? (P[k] || P.tiktok).c : "var(--err)"}" title="${esc(v.error || "")}">${name}${v.ok ? "" : " : erreur"}</span>`; }).join("");
@@ -668,6 +696,7 @@ async function loadClips() {
           <button class="btn sm" onclick="pub('${c.folder}', this)">Publier</button>
           <button class="btn tt sm" onclick="openTikTok('${esc(c.folder)}')">TikTok</button>
           <button class="btn sec sm" onclick="ttDraft('${esc(c.folder)}', this)" title="Envoyer dans tes brouillons TikTok, sans publier">Brouillon TikTok</button>
+          <button class="btn sec sm" onclick="copyTxt(this, CAPS['${esc(c.folder)}'] || '')" title="À coller dans TikTok : un brouillon arrive sans légende">Copier la légende</button>
           <button class="btn sec sm" onclick="openClip('${esc(c.folder)}')">Détails</button>
           <button class="btn sec sm" onclick="del('${c.folder}')">Supprimer</button></div></div></div>`;
   }).join("");
@@ -710,7 +739,7 @@ const FIELDS = [
   ["facecam_height", "Hauteur de la facecam (px sur 1920)", "number"], ["music_volume", "Volume musique (0-1)", "number"],
   ["sfx_volume", "Volume effets sonores (0-1)", "number"], ["credit_streamer", "Afficher @streamer", "bool"],
   ["Live", null],
-  ["live_spike_threshold", "Sensibilité (plus bas = plus de clips)", "number"], ["live_cooldown_seconds", "Délai mini entre 2 clips (s)", "number"],
+  ["live_spike_threshold", "Sensibilité (plus bas = plus de clips)", "number"], ["live_cooldown_seconds", "Délai mini entre 2 clips (s)", "number"], ["live_min_ai_score", "Note IA minimale pour garder un clip (sur 10)", "number"],
   ["Statistiques", null],
   ["stats_interval_minutes", "Relevé des statistiques toutes les (min)", "number"],
   ["Découverte", null],
@@ -720,6 +749,7 @@ const FIELDS = [
   ["publish_mode", "Mode de publication", ["manual", "auto"]],
   ["publish_youtube", "Publier sur YouTube", "bool"], ["youtube_privacy", "Visibilité YouTube", ["public", "unlisted", "private"]],
   ["tiktok_auto_draft", "Nouveaux clips → brouillons TikTok (automatique)", "bool"],
+  ["tiktok_app_approved", "App TikTok validée par TikTok (autorise la publication publique)", "bool"],
   ["tiktok_client_key", "TikTok Client Key", "text"], ["tiktok_client_secret", "TikTok Client Secret", "password"],
   ["tiktok_access_token", "TikTok Access Token", "password"], ["tiktok_refresh_token", "TikTok Refresh Token", "password"],
   ["publish_instagram", "Publier sur Instagram", "bool"], ["instagram_user_id", "Instagram User ID", "text"],

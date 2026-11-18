@@ -111,7 +111,7 @@ def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: d
     with manager.gpu_lock:
         llm.unload()  # l'IA et Whisper ne tiennent pas ensemble dans 8 Go : sans ca, Whisper passe sur le processeur
         for i, c in enumerate(cands):
-            if job.stopped:
+            if job.stopped and job.kind != "live":  # live arrete : le clip deja commence est fini et publie
                 return []
             tr = transcribe.transcribe(audio, c.start, c.end, language=lang)
             trs.append(tr)
@@ -132,7 +132,7 @@ def analyse_moments(job: Job, audio: Path, messages: list, streamer: str, cfg: d
     moments: list[Moment] = []
     max_sig = max(c.score for c in cands) or 1
     for i, (c, tr) in enumerate(zip(cands, trs)):
-        if job.stopped:
+        if job.stopped and job.kind != "live":
             return []
         j = None
         if use_llm:

@@ -167,3 +167,27 @@ def test_no_progress_bar_in_render():
 def test_hook_has_no_emoji():
     from clipper.llm import hook_with_name
     assert hook_with_name("JL TOMY'S NAMING DISASTER 🚔", "JL Tomy") == "JL TOMY'S NAMING DISASTER"
+
+
+def test_long_hook_fits_the_screen():
+    """Une accroche longue deborde de l'ecran a 80 px : elle est reduite ou coupee en 2 lignes."""
+    from clipper.render import _font
+    from clipper.subtitles import fit_hook
+    assert fit_hook("ASHTAX HAD 1 HP LEFT", "Impact", 984) == ("ASHTAX HAD 1 HP LEFT", 80)  # courte : inchangee
+    for hook in ["RUBIUS CRIES LAUGHING AT LUCIA'S DIZZY OUTFIT",
+                 "KAI CENAT LOSES IT WHEN THE COPS SHOW UP AT HIS HOUSE IN GTA"]:
+        text, size = fit_hook(hook, "Impact", 984)
+        lines = text.split(r"\N")
+        assert len(lines) == 2 and " ".join(lines) == hook
+        f = _font("impact.ttf", size)
+        assert all(f.getlength(l) + len(l) <= 984 for l in lines)
+        assert size >= 60
+
+
+def test_two_line_hook_does_not_cover_streamer_credit(tmp_path):
+    import re
+    from clipper.subtitles import build_ass
+    ass = tmp_path / "s.ass"
+    build_ass(ass, [], 4.0, "RUBIUS CRIES LAUGHING AT LUCIA'S DIZZY OUTFIT", "Rubius", 1500, 790, 666)
+    y = int(re.search(r"\\pos\(540,(\d+)\)", ass.read_text(encoding="utf-8")).group(1))
+    assert y > 790  # @streamer au-dessus : le bandeau grandit vers le bas

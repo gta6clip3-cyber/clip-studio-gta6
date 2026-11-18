@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 
 from .. import config
+from ..utils import log
 
 API = "https://open.tiktokapis.com/v2"
 
@@ -43,7 +44,13 @@ def creator_info() -> dict:
         if code == "spam_risk_too_many_posts":
             raise RuntimeError("TikTok : limite de publications atteinte pour aujourd'hui, reessaie plus tard.")
         raise RuntimeError(f"TikTok : {r['error'].get('message') or code}")
-    return r.get("data", {})
+    info = r.get("data", {})
+    if not cfg.get("tiktok_app_approved"):
+        # app pas encore validee par TikTok : il refuse tout ce qui n'est pas « Moi uniquement »
+        # (erreur unaudited_client_can_only_post_to_private_accounts) -> on ne propose que ca
+        info["privacy_level_options"] = [o for o in info.get("privacy_level_options", []) if o == "SELF_ONLY"]
+        info["unaudited"] = True
+    return info
 
 
 def check_options(opts: dict, info: dict, duration: float) -> dict:
@@ -66,6 +73,37 @@ def check_options(opts: dict, info: dict, duration: float) -> dict:
             "brand_content_toggle": brand_content, "brand_organic_toggle": brand_organic}
 
 
+def with_cover(video: Path) -> Path:
+    """Copie du clip pour TikTok dont la 1re image est la miniature (cover.jpg, avec le titre).
+
+    TikTok n'accepte aucune miniature par l'API pour un brouillon, et prend la 1re image par defaut : on y met
+    la couverture (une seule image, 1/30 s, invisible a la lecture). Sans cover.jpg : le clip tel quel."""
+    from ..render import _encoder_args
+    from ..utils import probe_fps, run, tool
+    cover = video.with_name("cover.jpg")
+    out = video.with_name("clip_tiktok.mp4")
+    if not cover.exists():
+        return video
+    if out.exists() and out.stat().st_mtime >= max(video.stat().st_mtime, cover.stat().st_mtime):
+        return out
+    cfg = config.load()
+    fps = probe_fps(video) or 30
+    W, H = cfg["width"], cfg["height"]
+    frame_ms = int(round(1000 / fps))
+    graph = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=decrease,pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,"
+             f"setsar=1,fps={fps:g},format=yuv420p[c];[1:v]scale={W}:{H},setsar=1,fps={fps:g},format=yuv420p[v];"
+             f"[c][v]concat=n=2:v=1:a=0[vo];[1:a]adelay={frame_ms}:all=1[ao]")
+    for enc in (_encoder_args(cfg), _encoder_args(dict(cfg, use_nvenc=False))):
+        try:
+            run([tool("ffmpeg"), "-y", "-v", "error", "-loop", "1", "-framerate", f"{fps:g}", "-t", f"{1 / fps:.4f}",
+                 "-i", str(cover), "-i", str(video), "-filter_complex", graph, "-map", "[vo]", "-map", "[ao]",
+                 *enc, "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)])
+            return out
+        except Exception as e:  # carte graphique occupee / indisponible : encodage processeur
+            log.warning("miniature TikTok (%s) : %s", enc[1], e)
+    return video
+
+
 def upload_draft(video: Path) -> str:
     """Depose la video dans les BROUILLONS TikTok de l'utilisateur (rien n'est publie) : il la publie ensuite
     lui-meme depuis l'appli TikTok. Autorise automatiquement ; demande la permission « video.upload »."""
@@ -80,6 +118,8 @@ def upload(video: Path, caption: str, post_info: dict | None = None, draft: bool
     if not token:
         raise RuntimeError("Jeton TikTok manquant (Parametres).")
     h = {"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=UTF-8"}
+    original = video
+    video = with_cover(video)  # 1re image = miniature : TikTok la prend comme couverture
     size = video.stat().st_size
     chunk = 10 * 1024 * 1024
     if size <= chunk:
@@ -92,11 +132,16 @@ def upload(video: Path, caption: str, post_info: dict | None = None, draft: bool
         url, done = f"{API}/post/publish/inbox/video/init/", "SEND_TO_USER_INBOX"
     else:
         url, done = f"{API}/post/publish/video/init/", "PUBLISH_COMPLETE"
-        body["post_info"] = {"title": caption[:2200], "video_cover_timestamp_ms": 1500,
+        body["post_info"] = {"title": caption[:2200], "video_cover_timestamp_ms": 0 if video != original else 1500,
                              **(post_info or {"privacy_level": cfg["tiktok_privacy"], "disable_duet": False,
                                               "disable_comment": False, "disable_stitch": False})}
     init = requests.post(url, headers=h, json=body, timeout=30).json()
     if init.get("error", {}).get("code") not in (None, "ok"):
+        if init["error"].get("code") == "unaudited_client_can_only_post_to_private_accounts":
+            raise RuntimeError("TikTok n'a pas encore valide ton app : tant que ce n'est pas fait, il n'accepte la "
+                               "publication directe que sur un COMPTE prive (reglage du compte TikTok, pas de la video). "
+                               "En attendant, utilise « Brouillon TikTok ». Une fois l'app validee, coche « App TikTok "
+                               "validee » dans Parametres.")
         if init["error"].get("code") == "scope_not_authorized":
             raise RuntimeError("TikTok : ajoute la permission « video.upload » a ton app TikTok, "
                                "puis relance « Connecter TikTok.bat ».")

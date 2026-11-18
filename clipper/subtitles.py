@@ -174,6 +174,40 @@ def chunk_times(chunks: list[list[dict]], duration: float, min_show: float = 0.5
     return times
 
 
+def fit_hook(text: str, font_name: str, max_w: int, size: int = 80, min_one_line: int = 64,
+             min_size: int = 44) -> tuple[str, int]:
+    """Phrase d'accroche qui tient dans la largeur : taille reduite si besoin, sinon coupee en 2 lignes
+    equilibrees (ex. « RUBIUS CRIES LAUGHING AT LUCIA'S DIZZY OUTFIT » debordait de l'ecran).
+    Retourne (texte avec \\N entre les lignes, taille de police)."""
+    from .render import _font
+    font = _font(font_name.lower() + ".ttf", size)
+
+    def width(s: str) -> float:  # + 1 px d'espacement par lettre (Spacing du style)
+        return font.getlength(s) + len(s)
+
+    words = text.split()
+    if not words:
+        return "", size
+    if width(text) <= max_w:
+        return text, size
+    def fit(lines: list[str], s: int) -> int:  # les largeurs ne sont pas tout a fait proportionnelles : on verifie
+        while s > min_size:
+            f = _font(font_name.lower() + ".ttf", s)
+            if all(f.getlength(l) + len(l) <= max_w for l in lines):
+                break
+            s -= 1
+        return s
+
+    one = int(size * max_w / width(text))
+    if one >= min_one_line or len(words) == 1:
+        return text, fit([text], one)
+    # 2 lignes : la coupure qui rend la plus longue ligne la plus courte possible
+    best = min(range(1, len(words)), key=lambda i: max(width(" ".join(words[:i])), width(" ".join(words[i:]))))
+    a, b = " ".join(words[:best]), " ".join(words[best:])
+    two = min(size, int(size * max_w / max(width(a), width(b))))
+    return f"{a}\\N{b}", fit([a, b], two)
+
+
 def build_ass(path: Path, words: list[dict], duration: float, hook: str, streamer: str,
               sub_y: int, hook_y: int, credit_y: int, lanes: dict[int, int] | None = None) -> Path:
     """lanes = {voix: y} : quand plusieurs personnes parlent, chaque voix a sa propre ligne a l'ecran
@@ -229,9 +263,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             anim = f"\\move({x},{y + 14},{x},{y},0,120)\\fad({fade_in},{fade_out})"
             ev.append(f"Dialogue: {1 + gi},{_ts(s)},{_ts(e)},Sub,,0,0,0,,{{\\an5{anim}}}{' '.join(parts)}")
     if hook:
+        # bandeau : 18 px de fond de chaque cote + 30 px de marge avec le bord de l'ecran
+        text, hsize = fit_hook(_esc(hook.upper()), cfg["title_font"], W - 2 * (18 + 30))
+        # 2 lignes : le bandeau grandit du cote oppose au « @streamer » pour ne pas le recouvrir
+        grow = (1 if credit_y < hook_y else -1) * round(text.count("\\N") * hsize * 0.55)
         ev.append(f"Dialogue: 2,{_ts(0)},{_ts(min(3.2, duration))},Hook,,0,0,0,,"
-                  f"{{\\an5\\pos({W // 2},{hook_y})\\fscx60\\fscy60\\t(0,140,\\fscx100\\fscy100)"
-                  f"\\fad(0,200)}}{_esc(hook.upper())}")
+                  f"{{\\an5\\pos({W // 2},{hook_y + grow})\\fs{hsize}\\fscx60\\fscy60\\t(0,140,\\fscx100\\fscy100)"
+                  f"\\fad(0,200)}}{text}")
     if streamer and cfg.get("credit_streamer", True):
         ev.append(f"Dialogue: 0,{_ts(0)},{_ts(duration)},Credit,,0,0,0,,"
                   f"{{\\an9\\pos({W - 30},{credit_y})}}@{_esc(streamer)}")

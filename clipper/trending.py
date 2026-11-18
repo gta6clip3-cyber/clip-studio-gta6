@@ -220,6 +220,14 @@ def run_auto(job: Job) -> None:
             if job.stopped:
                 break
             time.sleep(5)
-    job.say(f"Auto arrete : {len(job.clips)} clip(s) au total")
     for j in watching.values():
         manager.stop(j.id)
+    # on attend que chaque live ait fini et publie ses clips commences : l'app peut ensuite etre fermee sans perte
+    while True:
+        busy = [j for j in watching.values() if j.status in ("en cours", "en attente")]
+        job.clips = old_clips + [c for j in watching.values() for c in j.clips if c not in old_clips]
+        if not busy:
+            break
+        job.step = f"Arret : {len(busy)} live(s) finissent leurs clips en cours, ne ferme pas l'app..."
+        time.sleep(5)
+    job.say(f"Auto arrete : {len(job.clips)} clip(s) au total. Tu peux fermer l'app.")

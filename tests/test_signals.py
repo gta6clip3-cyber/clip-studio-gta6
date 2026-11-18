@@ -125,7 +125,8 @@ def test_live_chat_reconnects_after_a_cut_and_stops_with_the_live(monkeypatch):
     from clipper import live
     calls, msgs, over = [], [], threading.Event()
 
-    def fake_chat(url):
+    def fake_chat(url, stop=None):
+        assert stop is over  # le lecteur recoit le signal de fin du live (pour arreter yt-dlp sur YouTube)
         calls.append(url)
         if len(calls) == 1:
             raise ConnectionError("coupure")

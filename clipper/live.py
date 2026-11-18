@@ -95,7 +95,7 @@ def _follow_chat(job: Job, rec: LiveRecorder, chat_msgs: list, live_over: thread
         try:
             # shortcut: live_over n'est vu qu'a l'arrivee d'un message (le lecteur de chat-downloader ne rend pas la
             # main entre deux messages) ; a revoir si des fils restent ouverts apres beaucoup de lives a la suite
-            for msg in live_chat(job.url):
+            for msg in live_chat(job.url, live_over):
                 if live_over.is_set():
                     return
                 chat_msgs.append((time.time() - rec.t0, msg))
@@ -202,9 +202,10 @@ def run_live(job: Job) -> None:
             def worker(cand=cand, win=win, idx=clip_index, win_msgs=win_msgs, win_parts=win_parts):
                 try:
                     moments = analyse_moments(job, win, win_msgs, streamer, cfg, 1, cands=[cand], parts=win_parts)
-                    moments = [m for m in moments if m.meta.get("score", 6) >= 6]
+                    min_ai = float(cfg.get("live_min_ai_score", 6))
+                    moments = [m for m in moments if m.meta.get("score", min_ai) >= min_ai]
                     if not moments:
-                        job.say(f"Clip {idx} juge pas assez fort par l'IA, ignore.")
+                        job.say(f"Clip {idx} juge pas assez fort par l'IA (moins de {min_ai:g}/10), ignore.")
                         return
                     finish_clip(job, moments[0], win, lambda s, e, f: (win, s), streamer,
                                 platform_of(job.url), info["webpage_url"], idx)
@@ -223,7 +224,13 @@ def run_live(job: Job) -> None:
     finally:
         live_over.set()  # arrete aussi le fil du chat (avant, il continuait apres la fin du live)
         rec.stop()
-        for th in pending:
-            th.join(timeout=900)
-        shutil.rmtree(folder, ignore_errors=True)  # tampon du live supprime
+        # les clips deja commences sont finis et publies (la carte graphique est partagee : ca peut etre long)
+        deadline = time.time() + 3 * 3600
+        while any(th.is_alive() for th in pending) and time.time() < deadline:
+            n = sum(th.is_alive() for th in pending)
+            job.step = f"Arret de {streamer} : fin de {n} clip(s) en cours (montage + publication)..."
+            for th in pending:
+                th.join(timeout=5)
+        if not any(th.is_alive() for th in pending):
+            shutil.rmtree(folder, ignore_errors=True)  # tampon du live supprime
         job.say(f"Live arrete : {len(job.clips)} clip(s) crees.")

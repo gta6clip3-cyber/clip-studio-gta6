@@ -42,7 +42,8 @@ class Job:
     def to_dict(self) -> dict:
         return {"id": self.id, "kind": self.kind, "url": self.url, "status": self.status,
                 "progress": round(self.progress, 3), "step": self.step, "logs": self.logs[-60:],
-                "clips": self.clips, "streamer": self.streamer, "created": self.created}
+                "clips": self.clips, "streamer": self.streamer, "created": self.created,
+                "stopping": self.stopped and self.status == "en cours"}
 
 
 class JobManager:
