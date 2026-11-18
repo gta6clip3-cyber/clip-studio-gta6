@@ -98,34 +98,128 @@ def discover() -> dict:
     return res
 
 
-def run_auto(job: Job) -> None:
-    """Surveille en permanence les N plus gros lives GTA 6 et lance un job live pour chacun."""
-    from .live import run_live
-    top_n = int(job.options.get("top_n") or 3)
-    watching: dict[str, Job] = {}
-    job.say(f"Mode automatique : surveillance des {top_n} plus gros lives GTA 6")
-    while not job.stopped:
+_yt_cache: dict = {"lives": [], "t": 0.0}
+
+
+def auto_lives(yt_every_s: float = 1800) -> list[dict]:
+    """Lives pour le mode auto : Twitch a chaque fois, YouTube au plus toutes les 30 min
+    (une recherche YouTube coute 100 unites de quota sur 10 000 par jour)."""
+    lives, errors = [], []
+    try:
+        lives += twitch_live()
+    except Exception as e:
+        errors.append(f"Twitch : {e}")
+    if time.time() - _yt_cache["t"] > yt_every_s:
         try:
-            lives = discover()["live"]
+            _yt_cache.update(lives=youtube_live(), t=time.time())
         except Exception as e:
-            job.say(f"Decouverte echouee : {e}")
-            lives = []
-        for k, j in list(watching.items()):
+            errors.append(f"YouTube : {e}")
+            _yt_cache["t"] = time.time() - yt_every_s + 600  # nouvel essai dans 10 min, pas a chaque tour
+    lives += _yt_cache["lives"]
+    if errors and not lives:
+        raise RuntimeError(" ; ".join(errors))
+    return sorted(lives, key=lambda x: x["viewers"], reverse=True)
+
+
+def plan_rotation(watched: dict[str, dict], lives: list[dict], top_n: int, margin: float = 0.2,
+                  min_watch_s: float = 900, now: float | None = None, skip: set | None = None) -> tuple[list, list]:
+    """Decide quels lives arreter et lesquels lancer.
+
+    watched : url -> {"since": debut du suivi}. lives : lives actuels, tries par audience.
+    - une place libre (live termine) est remplie par le plus gros live non suivi ;
+    - un live plus gros remplace le plus faible suivi s'il a au moins `margin` (20 %) de spectateurs en plus
+      et si le plus faible est suivi depuis `min_watch_s` (sinon on changerait sans cesse sans rien clipper).
+    Retourne (urls a arreter, lives a lancer)."""
+    now = time.time() if now is None else now
+    skip = skip or set()
+    views = {s["url"]: s["viewers"] for s in lives}
+    keep = dict(watched)
+    stop, start = [], []
+    for s in lives:
+        if s["url"] in keep or s["url"] in skip:
+            continue
+        if len(keep) < top_n:
+            keep[s["url"]] = {"since": now}
+            start.append(s)
+            continue
+        # le plus faible des lives suivis (absent de la liste = hors du top : 0 spectateur)
+        old = [u for u in keep if u in watched and now - watched[u]["since"] >= min_watch_s]
+        if not old:
+            break
+        weak = min(old, key=lambda u: views.get(u, 0))
+        if s["viewers"] < views.get(weak, 0) * (1 + margin) or s["viewers"] <= views.get(weak, 0):
+            break  # liste triee : les suivants sont encore plus petits
+        del keep[weak]
+        stop.append(weak)
+        keep[s["url"]] = {"since": now}
+        start.append(s)
+    return stop, start
+
+
+def run_auto(job: Job) -> None:
+    """Surveille en permanence les N plus gros lives GTA 6 : un live termine est remplace,
+    un live nettement plus gros prend la place du plus petit."""
+    from .live import run_live
+    cfg = config.load()
+    top_n = int(job.options.get("top_n") or 3)
+    margin = float(cfg.get("auto_swap_margin", 0.2))
+    min_watch = float(cfg.get("auto_min_watch_minutes", 15)) * 60
+    every = float(cfg.get("auto_check_minutes", 5)) * 60
+    watching: dict[str, Job] = {}
+    since: dict[str, float] = {}
+    mine_stopped: set[str] = set()   # lives arretes par la rotation (pas par toi)
+    skip: set[str] = set()           # lives que tu as arretes a la main : on ne les relance pas
+    cool: dict[str, float] = {}      # url -> pas relance avant cette heure
+    old_clips: list[str] = []
+    job.say(f"Mode automatique : surveillance des {top_n} plus gros lives GTA 6")
+    last = 0.0
+    while not job.stopped:
+        freed = False
+        for url, j in list(watching.items()):
             if j.status in ("termine", "erreur", "arrete"):
-                del watching[k]
-        for s in lives[:top_n]:
-            if s["url"] not in watching:
-                lj = Job(kind="live", url=s["url"], options={"auto": True, "game": config.load()["game_name"]})
-                manager.submit(lj, run_live, queued=False)
-                watching[s["url"]] = lj
-                job.say(f"-> {s['streamer']} ({s['viewers']} viewers) surveille")
-        job.step = "Auto : " + ", ".join(j.streamer or j.url for j in watching.values())
-        total = sum(len(j.clips) for j in watching.values())
-        job.clips = [c for j in watching.values() for c in j.clips]
-        for _ in range(120):  # re-verifie toutes les 10 minutes
+                if j.status == "arrete" and url not in mine_stopped:
+                    skip.add(url)
+                    job.say(f"{j.streamer or url} arrete a la main : il ne sera pas relance")
+                elif url not in mine_stopped:
+                    job.say(f"{j.streamer or url} : live termine, place liberee")
+                    cool[url] = time.time() + 600  # flux coupe mais encore liste : pas relance avant 10 min
+                old_clips += [c for c in j.clips if c not in old_clips]
+                del watching[url]
+                since.pop(url, None)
+                mine_stopped.discard(url)
+                freed = True
+        if freed or time.time() - last >= every:
+            last = time.time()
+            try:
+                lives = auto_lives()
+            except Exception as e:
+                job.say(f"Decouverte echouee : {e}")
+                lives = []
+            if lives:  # liste vide = API en panne : on ne touche a rien
+                # un live en cours d'arret (il finit ses clips) ne compte plus comme une place prise
+                active = {u: {"since": since[u]} for u in watching if u not in mine_stopped}
+                now = time.time()
+                wait = skip | mine_stopped | {u for u, t in cool.items() if t > now}
+                stop, start = plan_rotation(active, lives, top_n, margin, min_watch, skip=wait)
+                views = {s["url"]: s["viewers"] for s in lives}
+                for url in stop:
+                    j = watching[url]
+                    mine_stopped.add(url)
+                    manager.stop(j.id)  # les clips en cours de montage sont termines avant l'arret
+                    job.say(f"<- {j.streamer or url} ({views.get(url, 0)} viewers) remplace par plus gros")
+                for s in start:
+                    lj = Job(kind="live", url=s["url"], options={"auto": True, "game": cfg["game_name"]})
+                    manager.submit(lj, run_live, queued=False)
+                    watching[s["url"]] = lj
+                    since[s["url"]] = time.time()
+                    job.say(f"-> {s['streamer']} ({s['viewers']} viewers) surveille")
+        live_now = [j for u, j in watching.items() if u not in mine_stopped]
+        job.step = "Auto : " + (", ".join(j.streamer or j.url for j in live_now) or "en recherche de lives")
+        job.clips = old_clips + [c for j in watching.values() for c in j.clips if c not in old_clips]
+        for _ in range(6):  # etat des lives verifie toutes les 30 s, recherche toutes les 5 min
             if job.stopped:
                 break
             time.sleep(5)
-        job.say(f"Auto : {total} clip(s) au total")
+    job.say(f"Auto arrete : {len(job.clips)} clip(s) au total")
     for j in watching.values():
         manager.stop(j.id)

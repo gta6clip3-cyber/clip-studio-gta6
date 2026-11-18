@@ -5,21 +5,27 @@ from pathlib import Path
 
 from .. import config
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"  # statistiques de la chaine et des videos
+SCOPES = [UPLOAD_SCOPE, READ_SCOPE]
 SECRET = config.DATA / "youtube_client_secret.json"
 TOKEN = config.DATA / "youtube_token.json"
 
 
-def credentials(interactive: bool = True):
+def credentials(interactive: bool = True, reconnect: bool = False):
+    """Jeton YouTube. Le jeton enregistre garde ses propres permissions (un ancien jeton « envoi seul » continue
+    de publier) ; `reconnect=True` redemande toutes les permissions (envoi + lecture des statistiques)."""
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
 
     creds = None
-    if TOKEN.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
+    if TOKEN.exists() and not reconnect:
+        creds = Credentials.from_authorized_user_file(str(TOKEN))
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
+    if interactive and creds and not creds.has_scopes(SCOPES):
+        creds = None  # connexion demandee : on en profite pour ajouter la lecture des statistiques
     if not creds or not creds.valid:
         if not interactive:
             raise RuntimeError("YouTube non connecte (Parametres > Connecter YouTube).")

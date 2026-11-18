@@ -117,6 +117,9 @@ def run_live(job: Job) -> None:
     # un live Twitch n'annonce pas son jeu : le mode automatique, lui, le connait (job.options["game"])
     job.options["profile"] = games.detect(info["title"], info.get("context", ""), job.options.get("game", ""))
     if not info["is_live"]:
+        if job.options.get("auto"):  # mode auto : le live vient de finir, la place sera donnee a un autre
+            job.say("Ce live vient de se terminer.")
+            return
         job.say("Ce lien n'est pas en live actuellement -> traitement comme une rediffusion.")
         from .pipeline import run_vod
         return run_vod(job)

@@ -18,3 +18,9 @@ tests/_fixtures/
 # Divers
 .claude/settings.local.json
 Thumbs.db
+
+# Visuels de ma chaine
+branding/
+
+# Statistiques des comptes (releves locaux)
+data/*.db

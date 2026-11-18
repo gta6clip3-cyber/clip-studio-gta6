@@ -14,7 +14,9 @@ import requests
 
 from clipper import config
 
-SCOPES = "user.info.basic,video.publish"
+# publication + lecture des statistiques (abonnes, vues de chaque video) pour le tableau de bord.
+# Ces permissions doivent aussi etre cochees dans ton app TikTok (developers.tiktok.com > ton app > Scopes).
+SCOPES = "user.info.basic,video.publish,video.upload,user.info.stats,video.list"
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 

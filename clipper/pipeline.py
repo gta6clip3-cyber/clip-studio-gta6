@@ -306,6 +306,10 @@ def finish_clip(job: Job, m: Moment, audio: Path, video: VideoProvider, streamer
             job.say(f"Publication : {res}")
         except Exception as e:
             job.say(f"Publication echouee : {e}")
+    if cfg.get("tiktok_auto_draft"):
+        # TikTok interdit la publication automatique : le clip va dans les brouillons, tu le publies d'un clic
+        from .publish import draft_clip
+        job.say(f"Brouillon TikTok : {draft_clip(folder)['tiktok_draft']}")
     return folder
 
 

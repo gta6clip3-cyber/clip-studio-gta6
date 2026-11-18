@@ -68,6 +68,11 @@ DEFAULTS: dict = {
 
     # --- Publication ---
     "publish_mode": "manual",             # "manual" | "auto"
+    "stats_interval_minutes": 15,         # releve des statistiques des comptes (tableau de bord)
+    "auto_check_minutes": 5,              # mode auto : recherche de plus gros lives toutes les N minutes
+    "auto_swap_margin": 0.2,              # un live remplace le plus petit suivi s'il a 20 % de spectateurs en plus
+    "auto_min_watch_minutes": 15,         # ... et si ce dernier est suivi depuis au moins 15 min
+    "tiktok_auto_draft": False,          # deposer chaque nouveau clip dans les brouillons TikTok (rien n'est publie)
     "publish_youtube": False,
     "publish_tiktok": False,
     "publish_instagram": False,

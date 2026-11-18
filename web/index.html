@@ -4,82 +4,230 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clip Studio</title>
+<script src="/static/vendor/chart.umd.min.js"></script>
 <style>
 :root{
-  --bg:#0c0b12;--panel:#15131f;--panel2:#1d1a2b;--line:#2b2740;--text:#eeeaf8;--mute:#9a93b5;
-  --pink:#ff3d8b;--orange:#ffa53d;--cyan:#3de0ff;--ok:#3ddc84;--err:#ff5c5c;
+  --bg:#0b0a11;--side:#100e18;--panel:#15131f;--panel2:#1c1929;--line:#2a2640;--text:#efecf8;--mute:#958eb0;
+  --pink:#ff3d8b;--orange:#ffa53d;--cyan:#3de0ff;--ok:#3ddc84;--err:#ff5c5c;--warn:#ffc53d;
+  --yt:#ff4e45;--tt:#2ee6e6;--ig:#c06cff;
   --grad:linear-gradient(90deg,var(--pink),var(--orange));
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
-header{display:flex;align-items:center;gap:18px;padding:16px 28px;border-bottom:1px solid var(--line);
-  background:linear-gradient(180deg,#171428,#0c0b12)}
-.logo{font-weight:900;font-size:22px;letter-spacing:.5px;background:var(--grad);-webkit-background-clip:text;color:transparent}
-nav{display:flex;gap:6px;margin-left:12px}
-nav{flex-wrap:wrap}
-nav button{background:none;border:0;color:var(--mute);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap}
-nav button.on{color:var(--text);background:var(--panel2)}
-.pills{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
-.pill{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panel2);color:var(--mute)}
-.pill.ok::before{content:"● ";color:var(--ok)} .pill.no::before{content:"● ";color:var(--err)}
-main{max-width:1280px;margin:0 auto;padding:26px 28px 60px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
-h2{margin:0 0 14px;font-size:17px}
+body{margin:0;background:var(--bg);color:var(--text);font:14.5px/1.45 "Segoe UI",system-ui,sans-serif}
+a{color:var(--cyan)}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+aside{background:var(--side);border-right:1px solid var(--line);padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.logo{font-weight:900;font-size:21px;letter-spacing:.5px;background:var(--grad);-webkit-background-clip:text;color:transparent;padding:0 10px 22px}
+aside nav{display:flex;flex-direction:column;gap:4px}
+aside nav button{display:flex;align-items:center;gap:11px;background:none;border:0;color:var(--mute);padding:10px 12px;border-radius:10px;
+  cursor:pointer;font:600 14.5px "Segoe UI",system-ui,sans-serif;text-align:left}
+aside nav button svg{width:18px;height:18px;flex:none}
+aside nav button:hover{color:var(--text);background:var(--panel)}
+aside nav button.on{color:var(--text);background:var(--panel2);box-shadow:inset 3px 0 0 var(--pink)}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:0 6px}
+.pill{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:7px}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--err);display:inline-block}
+.pill.ok i{background:var(--ok)}
+main{padding:26px 32px 70px;max-width:1500px;width:100%;min-width:0}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.top h1{margin:0;font-size:24px}
+.top .sub{color:var(--mute);font-size:13px}
+.top .r{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;min-width:0}
+.card h2{margin:0 0 14px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h2 .hint{margin:0;font-weight:400}
+.grid{display:grid;gap:18px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:18px}
+.kpi{position:relative;overflow:hidden}
+.kpi .l{color:var(--mute);font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi .v{font-size:30px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:13px;margin-top:2px;color:var(--mute)}
+.up{color:var(--ok)!important} .down{color:var(--err)!important}
+.kpi canvas{position:absolute;right:0;bottom:0;width:55%!important;height:46px!important;opacity:.85}
+.plats{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:18px}
+.plat{border-top:3px solid var(--c)}
+.plat .head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.plat .logo2{width:30px;height:30px;border-radius:9px;background:var(--c);display:grid;place-items:center;color:#0b0a11;font-weight:900;font-size:13px}
+.plat .name{font-weight:800}.plat .acc{color:var(--mute);font-size:12.5px}
+.plat .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.plat .nums div b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.plat .nums div span{font-size:12px;color:var(--mute)}
+.warnbox{margin-top:12px;font-size:12.5px;padding:9px 11px;border-radius:10px;background:#2a2312;color:#ffdca0;border:1px solid #4a3b16}
+.okbox{margin-top:12px;font-size:12.5px;color:var(--mute)}
+.charts{grid-template-columns:2fr 1fr;margin-bottom:18px}
+.charts2{grid-template-columns:1fr 1fr;margin-bottom:18px}
+.chartbox{position:relative;height:290px}
+.empty{color:var(--mute);text-align:center;padding:34px 10px}
+.toplist{display:flex;flex-direction:column;gap:10px}
+.trow{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;cursor:pointer;padding:6px;border-radius:10px}
+.trow:hover{background:var(--panel2)}
+.trow img,.thumb{width:44px;height:64px;object-fit:cover;border-radius:7px;background:#000}
+.trow .tt{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trow .barv{height:6px;border-radius:5px;background:var(--grad);margin-top:6px}
+.trow .n{font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.trow .n small{display:block;color:var(--mute);font-weight:400}
+.dots{display:flex;gap:4px;margin-top:4px}.dot{width:8px;height:8px;border-radius:50%}
+/* tables */
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px;vertical-align:middle}
+th{color:var(--mute);font-weight:600;font-size:11.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
+td canvas{width:110px!important;height:32px!important}
+.plb{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--panel2);margin:2px 4px 2px 0;white-space:nowrap}
+.plb::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+/* clips */
+.clips{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.clip{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.clip:hover{transform:translateY(-2px);border-color:#3d3760}
+.clip .cov{position:relative;aspect-ratio:9/16;background:#000 center/cover no-repeat;cursor:pointer}
+.clip .cov .score{position:absolute;top:10px;right:10px}
+.clip .cov .views{position:absolute;left:10px;bottom:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap}
+.clip .cov .views span{background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border-radius:8px;padding:3px 8px;font-size:12px;font-weight:700}
+.clip .cov .play{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transition:opacity .15s;background:rgba(0,0,0,.25)}
+.clip .cov:hover .play{opacity:1}
+.clip .body{padding:12px 13px;display:flex;flex-direction:column;gap:6px}
+.clip .t{font-weight:800;font-size:14px}
+.meta{font-size:12px;color:var(--mute)}
+.score{background:var(--grad);color:#14101f;font-weight:900;border-radius:8px;padding:2px 8px;font-size:12px}
+/* forms / buttons */
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;
-  padding:11px 13px;font:inherit}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font:inherit}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--pink);border-color:transparent}
-#url{flex:1;min-width:280px;font-size:16px}
-.btn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;color:#14101f;background:var(--grad)}
+#url{flex:1;min-width:260px;font-size:15px}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;color:#14101f;background:var(--grad);font-size:14px;text-decoration:none;display:inline-block}
 .btn.sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
-.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
+.btn.sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
 .btn:disabled{opacity:.5;cursor:default}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{background:none;border:0;color:var(--mute);padding:5px 11px;border-radius:7px;cursor:pointer;font-weight:600;font-size:12.5px}
+.seg button.on{background:var(--panel);color:var(--text)}
 .hint{color:var(--mute);font-size:13px;margin-top:8px}
-.job{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:var(--panel2)}
-.job .top{display:flex;gap:10px;align-items:center}
-.tag{font-size:11px;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:var(--line)}
+.job{border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:10px;background:var(--panel2)}
+.job .jt{display:flex;gap:10px;align-items:center}
+.tag{font-size:10.5px;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:var(--line)}
 .tag.live{background:var(--err);color:#fff} .tag.auto{background:var(--cyan);color:#000}
 .bar{height:6px;background:var(--bg);border-radius:9px;overflow:hidden;margin:10px 0 6px}
 .bar i{display:block;height:100%;background:var(--grad);transition:width .4s}
-.job details{margin-top:6px} .job pre{max-height:220px;overflow:auto;font-size:12px;color:var(--mute);white-space:pre-wrap;margin:6px 0 0}
+.job pre{max-height:220px;overflow:auto;font-size:12px;color:var(--mute);white-space:pre-wrap;margin:6px 0 0}
 .status{font-size:12px;color:var(--mute);margin-left:auto}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}
-.clip{background:var(--panel2);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-.clip video{width:100%;aspect-ratio:9/16;background:#000;display:block}
-.clip .body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
-.clip .t{font-weight:800}
-.clip .meta{font-size:12px;color:var(--mute)}
-.clip textarea{width:100%;min-height:86px;font-size:12px;resize:vertical}
-.clip .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
-.pub{font-size:12px} .pub a{color:var(--cyan)}
-.score{float:right;background:var(--grad);color:#14101f;font-weight:900;border-radius:7px;padding:1px 7px;font-size:12px}
-table{width:100%;border-collapse:collapse} td,th{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase}
-td img{width:112px;border-radius:6px;display:block}
-.form{display:grid;grid-template-columns:240px 1fr;gap:10px 16px;align-items:center}
+.form{display:grid;grid-template-columns:250px 1fr;gap:10px 16px;align-items:center}
 .form label{color:var(--mute);font-size:14px}
 .sec-title{grid-column:1/-1;margin:14px 0 2px;font-weight:800;color:var(--orange)}
-.guide{font-size:14px;color:var(--mute)} .guide b{color:var(--text)} .guide code{background:var(--bg);padding:1px 6px;border-radius:5px}
-.hidden{display:none}
-.empty{color:var(--mute);text-align:center;padding:30px}
-@media (max-width:700px){header{flex-wrap:wrap;padding:14px 16px}main{padding:18px 16px}.form{grid-template-columns:1fr}}
+.guide{font-size:13.5px;color:var(--mute)} .guide b{color:var(--text)} .guide code{background:var(--bg);padding:1px 6px;border-radius:5px}
+td img.tr{width:112px;border-radius:6px;display:block}
+.hidden{display:none!important}
+/* detail drawer */
+.ov{position:fixed;inset:0;background:rgba(5,4,10,.66);backdrop-filter:blur(3px);z-index:20;display:flex;justify-content:flex-end}
+.drawer{width:min(1020px,100%);height:100%;overflow:auto;background:var(--bg);border-left:1px solid var(--line);padding:24px 28px 60px}
+.dhead{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+.dhead h2{margin:0;font-size:21px}
+.dgrid{display:grid;grid-template-columns:300px 1fr;gap:20px}
+.dgrid video,.dgrid img.big{width:100%;aspect-ratio:9/16;border-radius:14px;background:#000;object-fit:cover;display:block}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .l{color:var(--mute);font-size:11.5px;text-transform:uppercase;font-weight:600}
+.tile .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.pcard{border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;padding:12px 14px;background:var(--panel)}
+.pcard .h{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-bottom:6px}
+.pcard .m{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 12px;font-size:13px;color:var(--mute)}
+.pcard .m b{color:var(--text);font-variant-numeric:tabular-nums}
+.close{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;width:38px;height:38px;cursor:pointer;font-size:18px;margin-left:auto;flex:none}
+.cap{width:100%;min-height:90px;font-size:12.5px;resize:vertical}
+/* ecran Publier sur TikTok */
+.ovc{position:fixed;inset:0;background:rgba(5,4,10,.72);backdrop-filter:blur(3px);z-index:30;display:grid;place-items:center;padding:16px}
+.ttm{width:min(860px,100%);max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px 24px}
+.ttm h2{margin:0;font-size:19px;display:flex;align-items:center;gap:10px}
+.ttm .creator{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:14px 0}
+.ttm .creator img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000}
+.ttm .cols{display:grid;grid-template-columns:230px 1fr;gap:20px}
+.ttm video{width:100%;aspect-ratio:9/16;border-radius:12px;background:#000}
+.ttm .f{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.ttm .f > label,.ttm .lab{font-weight:700;font-size:13.5px}
+.ttm textarea{min-height:110px;resize:vertical;font-size:13px}
+.chk{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;padding:4px 0;cursor:pointer}
+.chk input{width:17px;height:17px;margin:1px 0 0;accent-color:#fe2c55}
+.chk.off{opacity:.5;cursor:not-allowed}
+.chk small{display:block;color:var(--mute);font-size:12px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch input{appearance:none;width:42px;height:24px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;flex:none;padding:0;border:0}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+.switch input:checked{background:#fe2c55}.switch input:checked::after{left:21px}
+.subbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+.decl{font-size:12.5px;color:var(--mute);margin:6px 0 14px}
+.btn.tt{background:#fe2c55;color:#fff}
+.msg{font-size:13px;padding:9px 12px;border-radius:10px;margin-bottom:12px}
+.msg.err{background:#3a1518;color:#ffb3b3;border:1px solid #5c2026}.msg.ok{background:#12301f;color:#a7f0c3;border:1px solid #1f5236}
+@media (max-width:760px){.ttm .cols{grid-template-columns:1fr}.ttm video{max-width:220px}}
+@media (max-width:1100px){.charts,.charts2{grid-template-columns:1fr}.dgrid{grid-template-columns:1fr}.dgrid video,.dgrid img.big{max-width:320px}}
+@media (max-width:760px){.app{grid-template-columns:minmax(0,1fr)}.app>*{min-width:0}aside{position:static;height:auto;padding:12px}
+  aside nav{flex-direction:row;overflow-x:auto}aside nav button{white-space:nowrap}.side-foot{display:none}.logo{padding:0 6px 10px}
+  main{padding:18px 16px 60px}.form{grid-template-columns:1fr}.drawer{padding:18px 16px}}
 </style>
 </head>
 <body>
-<header>
+<div class="app">
+<aside>
   <div class="logo">CLIP STUDIO</div>
-  <nav>
-    <button data-tab="create" class="on">Créer</button>
-    <button data-tab="clips">Mes clips</button>
-    <button data-tab="trend">Streamers du moment</button>
-    <button data-tab="settings">Paramètres</button>
+  <nav id="nav">
+    <button data-tab="dash" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Tableau de bord</button>
+    <button data-tab="videos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>Vidéos publiées</button>
+    <button data-tab="clips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>Mes clips</button>
+    <button data-tab="create"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Créer</button>
+    <button data-tab="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg>Streamers du moment</button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Paramètres</button>
   </nav>
-  <div class="pills" id="pills"></div>
-</header>
+  <div class="side-foot" id="pills"></div>
+</aside>
 <main>
 
-<section id="tab-create">
-  <div class="card">
+<!-- ===================== TABLEAU DE BORD ===================== -->
+<section id="tab-dash">
+  <div class="top">
+    <div><h1>Tableau de bord</h1><div class="sub" id="upd">—</div></div>
+    <div class="r">
+      <div class="seg" id="range"><button data-d="1">24 h</button><button data-d="7" class="on">7 j</button><button data-d="30">30 j</button><button data-d="90">90 j</button></div>
+      <button class="btn sec sm" id="refreshStats">Actualiser maintenant</button>
+    </div>
+  </div>
+  <div class="grid kpis" id="kpis"></div>
+  <div class="grid plats" id="plats"></div>
+  <div class="grid charts">
+    <div class="card"><h2>Abonnés <span class="hint">par plateforme</span></h2><div class="chartbox"><canvas id="chFollowers"></canvas></div></div>
+    <div class="card"><h2>Meilleures vidéos <span class="hint">vues totales</span></h2><div class="toplist" id="topVideos"></div></div>
+  </div>
+  <div class="grid charts2">
+    <div class="card"><h2>Vues gagnées par jour</h2><div class="chartbox"><canvas id="chDaily"></canvas></div></div>
+    <div class="card"><h2>Vues cumulées <span class="hint">toutes vidéos</span></h2><div class="chartbox"><canvas id="chViews"></canvas></div></div>
+  </div>
+</section>
+
+<!-- ===================== VIDEOS PUBLIEES ===================== -->
+<section id="tab-videos" class="hidden">
+  <div class="top"><div><h1>Vidéos publiées</h1><div class="sub">Clique sur une vidéo pour voir ses courbes en détail.</div></div>
+    <div class="r"><input id="vsearch" placeholder="Rechercher…" style="min-width:220px"></div></div>
+  <div class="card" style="padding:6px 12px">
+    <table><thead><tr>
+      <th style="width:56px"></th><th data-s="title">Vidéo</th><th>Plateformes</th>
+      <th class="num" data-s="views">Vues</th><th class="num" data-s="views_24h">24 h</th><th class="num" data-s="likes">J'aime</th>
+      <th class="num" data-s="comments">Comm.</th><th>Tendance</th><th class="num" data-s="published_at">Publiée</th>
+    </tr></thead><tbody id="vtable"></tbody></table>
+  </div>
+</section>
+
+<!-- ===================== CLIPS ===================== -->
+<section id="tab-clips" class="hidden">
+  <div class="top"><div><h1>Mes clips</h1><div class="sub" id="clipsSub"></div></div>
+    <div class="r"><div class="seg" id="clipFilter"><button data-f="all" class="on">Tous</button><button data-f="pub">Publiés</button><button data-f="unpub">À publier</button><button data-f="ttq">File TikTok <b id="ttqn"></b></button></div>
+      <button class="btn sec sm" id="openout">Ouvrir le dossier</button></div></div>
+  <div class="grid clips" id="clips"></div>
+</section>
+
+<!-- ===================== CREER ===================== -->
+<section id="tab-create" class="hidden">
+  <div class="top"><h1>Créer des clips</h1></div>
+  <div class="card" style="margin-bottom:18px">
     <h2>Colle le lien d'un live ou d'une rediffusion</h2>
     <div class="row">
       <input id="url" placeholder="https://www.twitch.tv/... · https://www.youtube.com/watch?v=... · https://kick.com/...">
@@ -89,7 +237,7 @@ td img{width:112px;border-radius:6px;display:block}
     </div>
     <div class="hint">Rediffusion : l'app analyse tout le stream et sort les meilleurs moments. Live : elle enregistre et crée un clip à chaque moment fort, jusqu'à ce que tu l'arrêtes.</div>
   </div>
-  <div class="card">
+  <div class="card" style="margin-bottom:18px">
     <h2>Mode automatique</h2>
     <div class="row">
       <span>Surveiller en continu les</span>
@@ -99,167 +247,460 @@ td img{width:112px;border-radius:6px;display:block}
     </div>
     <div class="hint">Nécessite les identifiants Twitch gratuits (onglet Paramètres).</div>
   </div>
-  <div class="card">
-    <h2>Tâches</h2>
-    <div id="jobs"><div class="empty">Aucune tâche pour l'instant.</div></div>
-  </div>
+  <div class="card"><h2>Tâches</h2><div id="jobs"><div class="empty">Aucune tâche pour l'instant.</div></div></div>
 </section>
 
-<section id="tab-clips" class="hidden">
-  <div class="row" style="margin-bottom:16px">
-    <h2 style="margin:0">Clips prêts</h2>
-    <button class="btn sec sm" id="openout" style="margin-left:auto">Ouvrir le dossier</button>
-  </div>
-  <div class="grid" id="clips"></div>
-</section>
-
+<!-- ===================== STREAMERS ===================== -->
 <section id="tab-trend" class="hidden">
-  <div class="card">
-    <div class="row"><h2 style="margin:0">Lives GTA 6 les plus regardés</h2>
-      <button class="btn sec sm" id="refresh" style="margin-left:auto">Actualiser</button></div>
+  <div class="top"><h1>Streamers du moment</h1><div class="r"><button class="btn sec sm" id="refresh">Actualiser</button></div></div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>Lives GTA 6 les plus regardés</h2>
     <div id="trend-err" class="hint"></div>
-    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th>Viewers</th><th></th></tr></thead><tbody id="trend-live"></tbody></table>
+    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th class="num">Viewers</th><th></th></tr></thead><tbody id="trend-live"></tbody></table>
   </div>
   <div class="card">
     <h2>Rediffusions les plus vues cette semaine (Twitch)</h2>
-    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th>Vues</th><th></th></tr></thead><tbody id="trend-vod"></tbody></table>
+    <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th class="num">Vues</th><th></th></tr></thead><tbody id="trend-vod"></tbody></table>
   </div>
 </section>
 
+<!-- ===================== PARAMETRES ===================== -->
 <section id="tab-settings" class="hidden">
-  <div class="card">
+  <div class="top"><h1>Paramètres</h1></div>
+  <div class="card" style="margin-bottom:18px">
+    <h2>Connexions pour les statistiques</h2>
+    <div id="connStats"></div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="ytconnect">Connecter / reconnecter YouTube</button></div>
+  </div>
+  <div class="card" style="margin-bottom:18px">
     <div class="form" id="form"></div>
-    <div class="row" style="margin-top:18px"><button class="btn" id="save">Enregistrer</button>
-      <button class="btn sec" id="ytconnect">Connecter YouTube</button><span id="saved" class="hint"></span></div>
+    <div class="row" style="margin-top:18px"><button class="btn" id="save">Enregistrer</button><span id="saved" class="hint"></span></div>
   </div>
   <div class="card guide">
     <h2>Guide des connexions (tout est gratuit)</h2>
     <p><b>Twitch (découverte des streamers)</b> : va sur <code>dev.twitch.tv/console</code> → « Register Your Application » → URL de redirection <code>http://localhost</code> → copie le Client ID et génère un Client Secret.</p>
-    <p><b>YouTube</b> : dans <code>console.cloud.google.com</code>, crée un projet, active « YouTube Data API v3 », crée un identifiant OAuth de type « Application de bureau », télécharge le JSON et renomme-le <code>youtube_client_secret.json</code> dans le dossier <code>data</code>, puis clique sur « Connecter YouTube ». Une clé API (même console) sert à trouver les lives YouTube.</p>
-    <p><b>TikTok</b> : crée une app sur <code>developers.tiktok.com</code> avec le produit « Content Posting API » (scope <code>video.publish</code>). Tant que TikTok n'a pas validé ton app, les vidéos sont publiées en privé (SELF_ONLY).</p>
-    <p><b>Instagram</b> : compte Instagram professionnel relié à une page Facebook, app sur <code>developers.facebook.com</code> avec « Instagram Graph API » (permissions <code>instagram_content_publish</code>). Renseigne l'ID utilisateur Instagram et le jeton longue durée.</p>
-    <p><b>Musique de fond</b> : dépose des musiques libres de droits dans <code>assets\music</code>. Elles sont baissées automatiquement quand le streamer parle.</p>
+    <p><b>YouTube</b> : dans <code>console.cloud.google.com</code>, crée un projet, active « YouTube Data API v3 », crée un identifiant OAuth de type « Application de bureau », télécharge le JSON et renomme-le <code>youtube_client_secret.json</code> dans le dossier <code>data</code>, puis clique sur « Connecter YouTube ». La connexion autorise l'envoi des vidéos et la lecture des statistiques.</p>
+    <p><b>TikTok</b> : app sur <code>developers.tiktok.com</code> avec « Content Posting API » et « Login Kit ». Coche les scopes <code>video.publish</code>, <code>user.info.stats</code> et <code>video.list</code>, puis lance <code>Connecter TikTok.bat</code>. Tant que TikTok n'a pas validé ton app, les vidéos sont publiées en privé.</p>
+    <p><b>Instagram</b> : compte professionnel relié à une page Facebook, app sur <code>developers.facebook.com</code> avec les permissions <code>instagram_content_publish</code> et, pour les vues des Reels, <code>instagram_manage_insights</code>. Renseigne l'ID utilisateur Instagram et le jeton longue durée.</p>
+    <p><b>Musique de fond</b> : dépose des musiques libres de droits dans <code>assets\music</code>.</p>
   </div>
 </section>
 </main>
+</div>
+
+<!-- ===================== DETAIL D'UNE VIDEO ===================== -->
+<div class="ov hidden" id="ov"><div class="drawer" id="drawer"></div></div>
+
+<!-- ===================== PUBLIER SUR TIKTOK ===================== -->
+<div class="ovc hidden" id="ttov"><div class="ttm" id="ttm"></div></div>
 
 <script>
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 const api = async (p, o = {}) => {
   const r = await fetch(p, {headers: {"Content-Type": "application/json"}, ...o});
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.detail || r.statusText);
   return d;
 };
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const P = {youtube: {n: "YouTube", c: "#ff4e45", s: "YT"}, tiktok: {n: "TikTok", c: "#2ee6e6", s: "TT"},
+           instagram: {n: "Instagram", c: "#c06cff", s: "IG"}};
+const nf = new Intl.NumberFormat("fr-FR");
+const cf = new Intl.NumberFormat("fr-FR", {notation: "compact", maximumFractionDigits: 1});
+const fmt = n => n == null ? "—" : (Math.abs(n) >= 10000 ? cf.format(n) : nf.format(n));
+const delta = n => !n ? `<span>±0</span>` : `<span class="${n > 0 ? "up" : "down"}">${n > 0 ? "+" : ""}${fmt(n)}</span>`;
+const ago = ts => { if (!ts) return "jamais"; const m = Math.round((Date.now() / 1000 - ts) / 60);
+  return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
+const dstr = ts => ts ? new Date(ts * 1000).toLocaleDateString("fr-FR", {day: "2-digit", month: "short"}) : "—";
 
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("hidden", s.id !== "tab-" + b.dataset.tab));
-  if (b.dataset.tab === "clips") loadClips();
-  if (b.dataset.tab === "trend") loadTrend();
-  if (b.dataset.tab === "settings") loadSettings();
-});
+/* ---------- graphiques ---------- */
+Chart.defaults.color = "#958eb0"; Chart.defaults.borderColor = "#2a2640";
+Chart.defaults.font.family = '"Segoe UI",system-ui,sans-serif';
+const charts = {};
+function chart(id, cfg) { if (charts[id]) charts[id].destroy(); const el = typeof id === "string" ? document.getElementById(id) : id;
+  if (!el) return; return charts[id] = new Chart(el, cfg); }
+const timeAxis = (days, bounded) => ({type: "linear", ...(bounded ? {min: Date.now() - days * 86400000, max: Date.now()} : {}),
+  ticks: {maxTicksLimit: 7, callback: v => {
+  const d = new Date(v); return days <= 1 ? d.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"})
+    : days <= 3 ? d.toLocaleDateString("fr-FR", {day: "2-digit", month: "short"}) + " " + d.getHours() + "h"
+    : d.toLocaleDateString("fr-FR", {day: "2-digit", month: "short"}); }}, grid: {display: false}});
+const tip = {callbacks: {title: it => new Date(it[0].parsed.x).toLocaleString("fr-FR", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"}),
+  label: it => ` ${it.dataset.label} : ${nf.format(it.parsed.y)}`}};
+function spark(canvas, data, color) {
+  if (!canvas || !data || data.length < 2) return;
+  new Chart(canvas, {type: "line", data: {labels: data.map((_, i) => i), datasets: [{data, borderColor: color, borderWidth: 2,
+    pointRadius: 0, tension: .35, fill: true, backgroundColor: color + "22"}]},
+    options: {responsive: false, animation: false, plugins: {legend: {display: false}, tooltip: {enabled: false}},
+      scales: {x: {display: false}, y: {display: false}}}});
+}
+
+/* ---------- navigation ---------- */
+let current = "dash";
+function show(tab) {
+  current = tab;
+  $$("#nav button").forEach(x => x.classList.toggle("on", x.dataset.tab === tab));
+  $$("main > section").forEach(s => s.classList.toggle("hidden", s.id !== "tab-" + tab));
+  ({dash: loadDash, videos: loadVideos, clips: loadClips, trend: loadTrend, settings: loadSettings, create: loadJobs})[tab]?.();
+}
+$$("#nav button").forEach(b => b.onclick = () => show(b.dataset.tab));
 
 async function loadStatus() {
   try {
     const s = await api("/api/status");
     const p = [["FFmpeg", s.ffmpeg], ["IA locale", s.ollama], ["Twitch API", s.twitch_api],
                ["YouTube", s.youtube_connected], ["TikTok", s.tiktok], ["Instagram", s.instagram]];
-    $("#pills").innerHTML = p.map(([n, ok]) => `<span class="pill ${ok ? "ok" : "no"}">${n}</span>`).join("") +
+    $("#pills").innerHTML = p.map(([n, ok]) => `<span class="pill ${ok ? "ok" : ""}"><i></i>${n}</span>`).join("") +
       `<span class="pill">Publication : ${s.publish_mode === "auto" ? "auto" : "manuelle"}</span>`;
   } catch {}
 }
 
-$("#go").onclick = async () => {
-  const url = $("#url").value.trim();
-  if (!url) return;
-  $("#go").disabled = true; $("#go").textContent = "Vérification...";
+/* ---------- tableau de bord ---------- */
+let days = 7, ovData = null, vidData = [];
+$$("#range button").forEach(b => b.onclick = () => { $$("#range button").forEach(x => x.classList.toggle("on", x === b)); days = +b.dataset.d; loadDash(); });
+$("#refreshStats").onclick = async () => {
+  const b = $("#refreshStats"); b.disabled = true; b.textContent = "Relevé en cours…";
+  await api("/api/stats/refresh", {method: "POST"}).catch(() => {});
+  setTimeout(() => { loadDash(); b.disabled = false; b.textContent = "Actualiser maintenant"; }, 8000);
+};
+async function loadDash() {
+  const [o, v, clips] = await Promise.all([api(`/api/stats/overview?days=${days}`).catch(() => null),
+    api("/api/stats/videos").catch(() => []), api("/api/clips").catch(() => [])]);
+  if (!o) return;
+  ovData = o; vidData = v;
+  $("#upd").textContent = o.last_update ? `Mis à jour ${ago(o.last_update)} · prochain relevé ${ago(o.next_update).replace("il y a", "dans")}`.replace("dans -", "dans ")
+    : "Aucun relevé pour l'instant : connecte au moins un compte (Paramètres).";
+  const t = o.totals, nPub = clips.filter(c => Object.values(c.published || {}).some(x => x.ok)).length;
+  const allSeries = Object.values(o.platforms).flatMap(p => p.series);
+  const kp = [
+    ["Abonnés", fmt(t.followers), `${delta(t.followers_24h)} sur 24 h`, "followers", "#ff3d8b"],
+    ["Vues", fmt(t.views), `${delta(t.views_24h)} sur 24 h`, "views", "#ffa53d"],
+    ["J'aime", fmt(t.likes), "sur les vidéos suivies", "likes", "#3de0ff"],
+    ["Vidéos publiées", fmt(t.videos), `${clips.length} clips créés · ${nPub} publiés depuis l'app`, null],
+  ];
+  $("#kpis").innerHTML = kp.map(([l, v, d, k], i) => `<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div>${k ? `<canvas id="kpi${i}" width="200" height="46"></canvas>` : ""}</div>`).join("");
+  kp.forEach(([, , , k, c], i) => { if (!k) return;
+    const byT = {}; Object.values(o.platforms).forEach(p => p.series.forEach(s => byT[s.t] = (byT[s.t] || 0) + (s[k] || 0)));
+    spark(document.getElementById("kpi" + i), Object.keys(byT).sort().map(x => byT[x]), c); });
+  $("#plats").innerHTML = Object.entries(o.platforms).map(([k, p]) => {
+    const m = P[k], st = p.status || {};
+    return `<div class="card plat" style="--c:${m.c}"><div class="head"><div class="logo2">${m.s}</div>
+      <div><div class="name">${m.n}</div><div class="acc">${st.ok ? "@" + esc(st.account || "") + " · " + ago(st.ts) : "non relevé"}</div></div></div>
+      <div class="nums"><div><b>${fmt(p.followers)}</b><span>abonnés ${p.followers_24h ? delta(p.followers_24h) : ""}</span></div>
+        <div><b>${fmt(p.views)}</b><span>vues ${p.views_24h ? delta(p.views_24h) : ""}</span></div>
+        <div><b>${fmt(p.videos)}</b><span>vidéos</span></div></div>
+      ${st.message ? `<div class="warnbox">${esc(st.message)}</div>` : `<div class="okbox">Relevé automatique toutes les 15 min.</div>`}</div>`;
+  }).join("");
+  const ds = (key) => Object.entries(o.platforms).filter(([, p]) => p.series.length).map(([k, p]) => ({label: P[k].n,
+    data: p.series.map(s => ({x: s.t * 1000, y: s[key]})), borderColor: P[k].c, backgroundColor: P[k].c + "22",
+    borderWidth: 2.5, pointRadius: p.series.length < 12 ? 3 : 0, tension: .3, fill: false}));
+  const lineOpts = {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false},
+    plugins: {legend: {labels: {boxWidth: 10, usePointStyle: true}}, tooltip: tip}, scales: {x: timeAxis(days, true), y: {beginAtZero: true, ticks: {callback: v => fmt(v)}}}};
+  if (allSeries.length) { chart("chFollowers", {type: "line", data: {datasets: ds("followers")}, options: lineOpts});
+    chart("chViews", {type: "line", data: {datasets: ds("views").map(d => ({...d, fill: true}))}, options: lineOpts}); }
+  else ["chFollowers", "chViews"].forEach(id => emptyChart(id, "Les courbes apparaîtront après les premiers relevés."));
+  const dv = o.daily_views || [];
+  if (dv.length) chart("chDaily", {type: "bar", data: {labels: dv.map(d => new Date(d.day).toLocaleDateString("fr-FR", {day: "2-digit", month: "short"})),
+      datasets: Object.keys(P).map(k => ({label: P[k].n, data: dv.map(d => d[k] || 0), backgroundColor: P[k].c, borderRadius: 4}))},
+    options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {labels: {boxWidth: 10, usePointStyle: true}}},
+      scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, ticks: {callback: v => fmt(v)}}}}});
+  else emptyChart("chDaily", "Il faut au moins deux jours de relevés.");
+  const top = [...v].sort((a, b) => b.views - a.views).slice(0, 6), max = Math.max(1, ...top.map(x => x.views));
+  $("#topVideos").innerHTML = top.length ? top.map(x => `<div class="trow" onclick="openVideo('${esc(x.key)}')">
+      <img src="${esc(x.thumb)}" onerror="this.style.visibility='hidden'"><div style="min-width:0"><div class="tt">${esc(x.title || "Sans titre")}</div>
+      <div class="dots">${Object.keys(x.platforms).map(k => `<span class="dot" style="background:${P[k].c}" title="${P[k].n}"></span>`).join("")}</div>
+      <div class="barv" style="width:${Math.max(4, x.views / max * 100)}%"></div></div>
+      <div class="n">${fmt(x.views)}<small>${x.views_24h ? "+" + fmt(x.views_24h) + " / 24 h" : ""}</small></div></div>`).join("")
+    : `<div class="empty">Aucune vidéo relevée pour l'instant.</div>`;
+}
+function emptyChart(id, msg) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const c = document.getElementById(id), ctx = c.getContext("2d"); c.width = c.parentElement.clientWidth; c.height = c.parentElement.clientHeight;
+  ctx.fillStyle = "#958eb0"; ctx.font = '14px "Segoe UI",system-ui'; ctx.textAlign = "center"; ctx.fillText(msg, c.width / 2, c.height / 2);
+}
+
+/* ---------- videos publiees ---------- */
+let vsort = {k: "published_at", dir: -1};
+$$("#tab-videos th[data-s]").forEach(th => th.onclick = () => {
+  vsort = {k: th.dataset.s, dir: vsort.k === th.dataset.s ? -vsort.dir : -1}; renderVideos(); });
+$("#vsearch").oninput = () => renderVideos();
+async function loadVideos() { vidData = await api("/api/stats/videos").catch(() => []); renderVideos(); }
+function renderVideos() {
+  const q = $("#vsearch").value.toLowerCase();
+  const rows = vidData.filter(v => !q || (v.title || "").toLowerCase().includes(q) || (v.streamer || "").toLowerCase().includes(q))
+    .sort((a, b) => { const x = a[vsort.k] ?? 0, y = b[vsort.k] ?? 0; return (x > y ? 1 : x < y ? -1 : 0) * vsort.dir; });
+  $("#vtable").innerHTML = rows.length ? rows.map((v, i) => `<tr onclick="openVideo('${esc(v.key)}')">
+    <td><img class="thumb" src="${esc(v.thumb)}" onerror="this.style.visibility='hidden'"></td>
+    <td><b>${esc(v.title || "Sans titre")}</b><div class="meta">${esc(v.streamer || "")}${v.score ? ` · IA ${v.score}/10` : ""}</div></td>
+    <td>${Object.entries(v.platforms).map(([k, p]) => `<span class="plb" style="--c:${P[k].c}">${P[k].n} ${fmt(p.views)}</span>`).join("")}</td>
+    <td class="num"><b>${fmt(v.views)}</b></td><td class="num">${v.views_24h ? delta(v.views_24h) : "—"}</td>
+    <td class="num">${fmt(v.likes)}</td><td class="num">${fmt(v.comments)}</td>
+    <td><canvas id="vs${i}" width="110" height="32"></canvas></td><td class="num">${dstr(v.published_at)}</td></tr>`).join("")
+    : `<tr><td colspan="9" class="empty">Aucune vidéo relevée. Connecte tes comptes dans Paramètres : les vidéos publiées apparaîtront ici.</td></tr>`;
+  rows.forEach((v, i) => { const best = Object.entries(v.platforms).sort((a, b) => (b[1].views || 0) - (a[1].views || 0))[0];
+    if (best) spark(document.getElementById("vs" + i), best[1].spark, P[best[0]].c); });
+}
+
+/* ---------- detail d'une video ---------- */
+window.openVideo = async key => {
+  $("#ov").classList.remove("hidden"); $("#drawer").innerHTML = `<div class="empty">Chargement…</div>`;
+  const v = await api(`/api/stats/video?key=${encodeURIComponent(key)}`).catch(e => ({error: e.message}));
+  if (v.error) { $("#drawer").innerHTML = `<div class="empty">${esc(v.error)}</div>`; return; }
+  renderDetail(v, v.meta);
+};
+window.openClip = async folder => {
+  const s = vidData.length ? vidData : await api("/api/stats/videos").catch(() => []);
+  const g = s.find(x => x.folder === folder);
+  if (g) return openVideo(g.key);
+  $("#ov").classList.remove("hidden");
+  const m = await api(`/api/clips/${encodeURIComponent(folder)}`).catch(() => null);
+  if (m) renderDetail({title: m.title, platforms: {}, series: {}, folder}, m);
+};
+function renderDetail(v, meta) {
+  const base = v.folder ? `/media/${encodeURIComponent(v.folder)}` : null;
+  const ps = Object.entries(v.platforms || {});
+  const tot = k => ps.reduce((s, [, p]) => s + (p[k] || 0), 0);
+  $("#drawer").innerHTML = `
+    <div class="dhead"><div style="min-width:0"><h2>${esc(meta?.title || v.title || "Vidéo")}</h2>
+      <div class="meta" style="margin-top:4px">${meta ? `${esc(meta.streamer)} · ${meta.duration}s · source ${esc(meta.platform)} · créé ${esc(meta.created)}` : ""}
+      ${meta?.score ? ` · <span class="score">IA ${meta.score}/10</span>` : ""}</div></div>
+      <button class="close" onclick="closeDetail()">✕</button></div>
+    <div class="dgrid">
+      <div>${base ? `<video src="${base}/clip.mp4" poster="${base}/cover.jpg" controls preload="none"></video>` : `<img class="big" src="${esc(v.thumb)}">`}
+        ${meta ? `<div class="row" style="margin-top:10px"><a class="btn sec sm" href="${base}/clip.mp4" download>Vidéo</a><a class="btn sec sm" href="${base}/cover.jpg" download>Cover</a>
+          <button class="btn sm" onclick="pub('${esc(v.folder)}', this)">Publier</button>
+          <button class="btn tt sm" onclick="openTikTok('${esc(v.folder)}')">TikTok</button></div>` : ""}</div>
+      <div style="min-width:0">
+        ${ps.length ? `<div class="tiles">
+          <div class="tile"><div class="l">Vues</div><div class="v">${fmt(tot("views"))}</div></div>
+          <div class="tile"><div class="l">Vues 24 h</div><div class="v">${fmt(tot("views_24h"))}</div></div>
+          <div class="tile"><div class="l">J'aime</div><div class="v">${fmt(tot("likes"))}</div></div>
+          <div class="tile"><div class="l">Commentaires</div><div class="v">${fmt(tot("comments"))}</div></div>
+          <div class="tile"><div class="l">Taux j'aime</div><div class="v">${tot("views") ? (tot("likes") / tot("views") * 100).toFixed(1) + " %" : "—"}</div></div></div>
+        <div class="pcards">${ps.map(([k, p]) => `<div class="pcard" style="--c:${P[k].c}"><div class="h">${P[k].n}${p.url ? `<a href="${esc(p.url)}" target="_blank" style="font-size:12px">ouvrir ↗</a>` : ""}</div>
+          <div class="m"><span>Vues</span><b>${fmt(p.views)}</b><span>24 h</span><b>${p.views_24h ? "+" + fmt(p.views_24h) : "—"}</b>
+          <span>J'aime</span><b>${fmt(p.likes)}</b><span>Comm.</span><b>${fmt(p.comments)}</b>${p.shares != null ? `<span>Partages</span><b>${fmt(p.shares)}</b>` : ""}</div></div>`).join("")}</div>
+        <div class="card" style="margin-bottom:16px"><h2>Vues dans le temps</h2><div class="chartbox" style="height:240px"><canvas id="dViews"></canvas></div></div>
+        <div class="card" style="margin-bottom:16px"><h2>J'aime et commentaires</h2><div class="chartbox" style="height:200px"><canvas id="dEng"></canvas></div></div>`
+        : `<div class="card" style="margin-bottom:16px"><div class="empty">Ce clip n'a pas encore de statistiques : il n'est pas publié, ou ses comptes ne sont pas encore relevés.</div></div>`}
+        ${meta ? `<div class="card"><h2>Titre, accroche et légende</h2>
+          <div class="meta">Accroche : <b style="color:var(--text)">${esc(meta.hook)}</b></div>
+          <textarea class="cap" readonly style="margin-top:8px">${esc(meta.caption)}</textarea>
+          <div class="row" style="margin-top:8px"><button class="btn sec sm" onclick="copyTxt(this, ${esc(JSON.stringify(meta.title))})">Copier le titre</button>
+            <button class="btn sec sm" onclick="copyTxt(this, this.closest('.card').querySelector('textarea').value)">Copier la légende</button>
+            ${meta.source_url ? `<a class="btn sec sm" href="${esc(meta.source_url)}" target="_blank">Stream d'origine ↗</a>` : ""}</div>
+          ${meta.summary ? `<div class="hint">Résumé de l'IA : ${esc(meta.summary)}</div>` : ""}</div>` : ""}
+      </div></div>`;
+  if (!ps.length) return;
+  const ser = v.series || {};
+  const mk = (key, dash) => Object.entries(ser).filter(([, s]) => s.length).map(([k, s]) => ({label: `${P[k].n}${dash ? " · " + dash : ""}`,
+    data: s.filter(x => x[key] != null).map(x => ({x: x.t * 1000, y: x[key]})), borderColor: P[k].c, backgroundColor: P[k].c + "22",
+    borderWidth: 2.5, borderDash: dash === "comm." ? [5, 4] : [], pointRadius: s.length < 12 ? 3 : 0, tension: .3, fill: !dash}));
+  const span = Math.max(1, (Date.now() / 1000 - (v.published_at || Date.now() / 1000)) / 86400);
+  const opts = {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false},
+    plugins: {legend: {labels: {boxWidth: 10, usePointStyle: true}}, tooltip: tip}, scales: {x: timeAxis(span), y: {beginAtZero: true, ticks: {callback: x => fmt(x)}}}};
+  chart("dViews", {type: "line", data: {datasets: mk("views")}, options: opts});
+  chart("dEng", {type: "line", data: {datasets: [...mk("likes", "j'aime"), ...mk("comments", "comm.")]}, options: opts});
+}
+window.closeDetail = () => { $("#ov").classList.add("hidden"); ["dViews", "dEng"].forEach(id => { charts[id]?.destroy(); delete charts[id]; }); };
+$("#ov").onclick = e => { if (e.target.id === "ov") closeDetail(); };
+document.addEventListener("keydown", e => { if (e.key !== "Escape") return;
+  if (!$("#ttov").classList.contains("hidden")) closeTikTok(); else closeDetail(); });
+
+/* ---------- publier sur TikTok (regles « Direct Post » de TikTok) ---------- */
+let tt = null;
+window.openTikTok = async folder => {
+  $("#ttov").classList.remove("hidden");
+  $("#ttm").innerHTML = `<div class="empty">Connexion à TikTok…</div>`;
+  let info, meta;
+  try { [info, meta] = await Promise.all([api("/api/tiktok/creator"), api(`/api/clips/${encodeURIComponent(folder)}`)]); }
+  catch (e) { $("#ttm").innerHTML = `<h2>Publier sur TikTok</h2><div class="msg err" style="margin-top:14px">${esc(e.message)}</div>
+    <div class="row" style="justify-content:flex-end"><button class="btn sec" onclick="closeTikTok()">Fermer</button></div>`; return; }
+  tt = {folder, info, meta};
+  const base = `/media/${encodeURIComponent(folder)}`, L = info.privacy_labels || {};
+  const inter = [["comment", "Autoriser les commentaires", info.comment_disabled],
+                 ["duet", "Autoriser les duos", info.duet_disabled],
+                 ["stitch", "Autoriser les collages", info.stitch_disabled]];
+  $("#ttm").innerHTML = `
+    <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="#fe2c55"><path d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.7a5.7 5.7 0 1 0 4.9 5.7V9a7.3 7.3 0 0 0 4.3 1.4V7.3a4.3 4.3 0 0 1-3.2-1.5z"/></svg>
+      Publier sur TikTok<button class="close" onclick="closeTikTok()">✕</button></h2>
+    <div class="creator"><img src="${esc(info.creator_avatar_url || "")}" onerror="this.style.visibility='hidden'">
+      <div><b>${esc(info.creator_nickname || info.creator_username)}</b><div class="meta">Publication sur le compte @${esc(info.creator_username)}</div></div></div>
+    <div id="ttmsg"></div>
+    <div class="cols">
+      <div><video src="${base}/clip.mp4" poster="${base}/cover.jpg" controls preload="metadata"></video>
+        <div class="meta" style="margin-top:6px">Durée ${meta.duration}s${info.max_video_post_duration_sec ? ` · maximum ${info.max_video_post_duration_sec}s pour ce compte` : ""}</div></div>
+      <div>
+        <div class="f"><label for="ttcap">Légende</label>
+          <textarea id="ttcap" maxlength="2200">${esc(meta.caption)}</textarea><div class="meta" id="ttcount"></div></div>
+        <div class="f"><label for="ttpriv">Qui peut voir cette vidéo ?</label>
+          <select id="ttpriv"><option value="" selected disabled>Choisis la visibilité…</option>
+            ${(info.privacy_level_options || []).map(o => `<option value="${o}">${esc(L[o] || o)}</option>`).join("")}</select></div>
+        <div class="f"><span class="lab">Autoriser les utilisateurs à</span>
+          ${inter.map(([k, l, off]) => `<label class="chk ${off ? "off" : ""}"><input type="checkbox" id="tt_${k}" ${off ? "disabled" : ""}>
+            <span>${l}${off ? `<small>Désactivé dans les paramètres de ton compte TikTok.</small>` : ""}</span></label>`).join("")}</div>
+        <div class="f"><div class="switch"><span><span class="lab">Divulguer le contenu commercial</span>
+            <small class="meta" style="display:block">Indique si cette vidéo fait la promotion d'une marque, d'un produit ou d'un service.</small></span>
+            <input type="checkbox" id="ttcom"></div>
+          <div class="subbox hidden" id="ttcombox">
+            <label class="chk"><input type="checkbox" id="ttorg"><span>Ta marque<small>Tu fais la promotion de toi-même ou de ta propre entreprise. La vidéo sera étiquetée « Contenu promotionnel ».</small></span></label>
+            <label class="chk"><input type="checkbox" id="ttbrand"><span>Contenu de marque<small>Tu fais la promotion d'une autre marque ou d'un tiers. La vidéo sera étiquetée « Partenariat rémunéré ».</small></span></label>
+          </div></div>
+        <div class="decl" id="ttdecl"></div>
+        <div class="row" style="justify-content:flex-end"><button class="btn sec" onclick="closeTikTok()">Annuler</button>
+          <button class="btn tt" id="ttgo" disabled>Publier</button></div>
+      </div></div>`;
+  ["ttcap", "ttpriv", "ttcom", "ttorg", "ttbrand"].forEach(id => $("#" + id).addEventListener(id === "ttcap" ? "input" : "change", ttUpdate));
+  $("#ttgo").onclick = ttPublish;
+  ttUpdate();
+};
+function ttUpdate() {
+  const com = $("#ttcom").checked, org = $("#ttorg").checked, brand = $("#ttbrand").checked, priv = $("#ttpriv");
+  $("#ttcombox").classList.toggle("hidden", !com);
+  // contenu de marque : la visibilite « Moi uniquement » n'est pas autorisee par TikTok
+  const self = [...priv.options].find(o => o.value === "SELF_ONLY");
+  if (self) { self.disabled = com && brand; self.title = self.disabled ? "La visibilité du contenu de marque ne peut pas être privée." : ""; }
+  if (self?.disabled && priv.value === "SELF_ONLY") priv.value = "";
+  $("#ttcount").textContent = `${$("#ttcap").value.length} / 2200`;
+  const music = `<a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank">Music Usage Confirmation</a>`;
+  const bc = `<a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank">Branded Content Policy</a>`;
+  $("#ttdecl").innerHTML = com && brand ? `En publiant, tu acceptes la ${bc} et la ${music} de TikTok.` : `En publiant, tu acceptes la ${music} de TikTok.`;
+  let why = "";
+  if (!priv.value) why = "Choisis qui peut voir la vidéo.";
+  else if (com && !org && !brand) why = "Indique si c'est « Ta marque », du « Contenu de marque », ou les deux.";
+  else if (tt.info.max_video_post_duration_sec && tt.meta.duration > tt.info.max_video_post_duration_sec) why = "Vidéo trop longue pour ce compte.";
+  $("#ttgo").disabled = !!why; $("#ttgo").title = why;
+}
+async function ttPublish() {
+  const b = $("#ttgo"); b.disabled = true; b.textContent = "Envoi en cours…";
+  $("#ttmsg").innerHTML = `<div class="msg">Envoi de la vidéo à TikTok… ne ferme pas cette fenêtre.</div>`;
   try {
-    await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: $("#mode").value,
-      max_clips: $("#nclips").value ? +$("#nclips").value : null})});
-    $("#url").value = "";
-    loadJobs();
-  } catch (e) { alert(e.message); }
+    await api(`/api/clips/${encodeURIComponent(tt.folder)}/tiktok`, {method: "POST", body: JSON.stringify({
+      caption: $("#ttcap").value, privacy_level: $("#ttpriv").value,
+      allow_comment: $("#tt_comment").checked, allow_duet: $("#tt_duet").checked, allow_stitch: $("#tt_stitch").checked,
+      commercial: $("#ttcom").checked, brand_organic_toggle: $("#ttcom").checked && $("#ttorg").checked,
+      brand_content_toggle: $("#ttcom").checked && $("#ttbrand").checked})});
+    const left = ttQueue(await api("/api/clips").catch(() => [])).length;
+    $("#ttmsg").innerHTML = `<div class="msg ok">Publié ! TikTok peut mettre quelques minutes à traiter la vidéo avant qu'elle apparaisse sur ton profil.
+      ${left ? `<div class="row" style="margin-top:8px"><span>${left} clip(s) encore dans la file TikTok.</span>
+        <button class="btn tt sm" onclick="ttNext()">Clip suivant →</button></div>` : ""}</div>`;
+    b.textContent = "Publié"; if (current === "clips") loadClips();
+  } catch (e) {
+    $("#ttmsg").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; b.textContent = "Publier"; ttUpdate();
+  }
+}
+// file TikTok : clips pas encore publies sur TikTok (du plus recent au plus ancien)
+const ttQueue = clips => clips.filter(c => !c.published?.tiktok?.ok);
+window.ttNext = async () => {
+  const done = tt?.folder;
+  const q = ttQueue(await api("/api/clips").catch(() => [])).filter(c => c.folder !== done);
+  if (q.length) openTikTok(q[0].folder); else { closeTikTok(); alert("La file TikTok est vide 🎉"); }
+};
+window.ttDraft = async (folder, btn) => {
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "Envoi au brouillon…";
+  try { await api(`/api/clips/${encodeURIComponent(folder)}/tiktok-draft`, {method: "POST"});
+    toast("Clip envoyé dans tes brouillons TikTok. Ouvre l'appli TikTok (notification « Brouillon prêt ») pour le modifier et le publier.", "ok"); }
+  catch (e) { toast(e.message, "err"); }
+  btn.disabled = false; btn.textContent = o; if (current === "clips") loadClips();
+};
+window.toast = (msg, kind = "") => {
+  const t = document.createElement("div"); t.className = `msg ${kind}`; t.textContent = msg;
+  t.style.cssText = "position:fixed;top:18px;right:18px;z-index:40;max-width:420px;box-shadow:0 8px 30px rgba(0,0,0,.5)";
+  document.body.appendChild(t); setTimeout(() => t.remove(), 9000);
+};
+window.closeTikTok = () => { $("#ttov").classList.add("hidden"); tt = null; };
+$("#ttov").onclick = e => { if (e.target.id === "ttov") closeTikTok(); };
+
+/* ---------- creer / taches ---------- */
+$("#go").onclick = async () => {
+  const url = $("#url").value.trim(); if (!url) return;
+  $("#go").disabled = true; $("#go").textContent = "Vérification...";
+  try { await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: $("#mode").value,
+      max_clips: $("#nclips").value ? +$("#nclips").value : null})}); $("#url").value = ""; loadJobs(); }
+  catch (e) { alert(e.message); }
   $("#go").disabled = false; $("#go").textContent = "Créer les clips";
 };
 $("#auto").onclick = async () => {
   try { await api("/api/auto", {method: "POST", body: JSON.stringify({top_n: +$("#topn").value})}); loadJobs(); }
   catch (e) { alert(e.message); }
 };
-
 const openLogs = new Set();
 async function loadJobs() {
   const jobs = await api("/api/jobs").catch(() => []);
   if (!jobs.length) return;
   $("#jobs").innerHTML = jobs.map(j => `
-    <div class="job">
-      <div class="top"><span class="tag ${j.kind}">${j.kind === "vod" ? "rediff" : j.kind}</span>
-        <b>${esc(j.streamer || j.url)}</b>
-        <span class="status">${esc(j.status)} · ${j.clips.length} clip(s)</span>
-        ${["en cours", "en attente"].includes(j.status) ? `<button class="btn sec sm" onclick="stopJob('${j.id}')">Arrêter</button>` : ""}
-      </div>
+    <div class="job"><div class="jt"><span class="tag ${j.kind}">${j.kind === "vod" ? "rediff" : j.kind}</span>
+      <b>${esc(j.streamer || j.url)}</b><span class="status">${esc(j.status)} · ${j.clips.length} clip(s)</span>
+      ${["en cours", "en attente"].includes(j.status) ? `<button class="btn sec sm" onclick="stopJob('${j.id}')">Arrêter</button>` : ""}</div>
       ${j.kind === "vod" ? `<div class="bar"><i style="width:${Math.round(j.progress * 100)}%"></i></div>` : `<div style="height:8px"></div>`}
       <div class="meta" style="font-size:13px">${esc(j.step)}</div>
       <details ${openLogs.has(j.id) ? "open" : ""} ontoggle="this.open ? openLogs.add('${j.id}') : openLogs.delete('${j.id}')">
-        <summary class="hint" style="cursor:pointer">Journal</summary><pre>${esc(j.logs.join("\n"))}</pre></details>
-    </div>`).join("");
+        <summary class="hint" style="cursor:pointer">Journal</summary><pre>${esc(j.logs.join("\n"))}</pre></details></div>`).join("");
 }
 window.stopJob = async id => { await api(`/api/jobs/${id}/stop`, {method: "POST"}); loadJobs(); };
 
+/* ---------- clips ---------- */
+let clipFilter = "all";
+$$("#clipFilter button").forEach(b => b.onclick = () => { $$("#clipFilter button").forEach(x => x.classList.toggle("on", x === b)); clipFilter = b.dataset.f; loadClips(); });
 async function loadClips() {
-  const clips = await api("/api/clips").catch(() => []);
-  if (!clips.length) { $("#clips").innerHTML = `<div class="empty">Pas encore de clip.</div>`; return; }
-  $("#clips").innerHTML = clips.map(c => {
-    const base = `/media/${encodeURIComponent(c.folder)}`;
-    const pub = Object.entries(c.published || {}).map(([k, v]) =>
-      v.ok ? `${k} : ${v.link?.startsWith("http") ? `<a href="${esc(v.link)}" target="_blank">voir</a>` : "ok"}` : `${k} : <span style="color:var(--err)">erreur</span>`).join(" · ");
-    return `<div class="clip">
-      <video src="${base}/clip.mp4" poster="${base}/cover.jpg" controls preload="none"></video>
-      <div class="body">
-        <div class="t">${c.score ? `<span class="score">${c.score}/10</span>` : ""}${esc(c.title)}</div>
-        <div class="meta">${esc(c.streamer)} · ${c.duration}s · ${esc(c.platform)} · ${esc(c.created)}</div>
-        <textarea readonly>${esc(c.caption)}</textarea>
-        <div class="pub">${pub}</div>
-        <div class="acts">
-          <button class="btn sec sm" onclick="copyTxt(this, ${esc(JSON.stringify(c.title))})">Copier titre</button>
-          <button class="btn sec sm" onclick="copyTxt(this, this.closest('.clip').querySelector('textarea').value)">Copier légende</button>
-          <a class="btn sec sm" href="${base}/clip.mp4" download>Vidéo</a>
-          <a class="btn sec sm" href="${base}/cover.jpg" download>Cover</a>
+  const [clips, vids] = await Promise.all([api("/api/clips").catch(() => []), api("/api/stats/videos").catch(() => [])]);
+  vidData = vids;
+  const byFolder = Object.fromEntries(vids.filter(v => v.folder).map(v => [v.folder, v]));
+  const isPub = c => Object.entries(c.published || {}).some(([k, x]) => x.ok && k !== "tiktok_draft");
+  const queue = ttQueue(clips);
+  $("#ttqn").textContent = queue.length || "";
+  const list = clipFilter === "ttq" ? queue : clips.filter(c => clipFilter === "all" || (clipFilter === "pub") === isPub(c));
+  $("#clipsSub").textContent = `${clips.length} clips · ${clips.filter(isPub).length} publiés · ${queue.length} dans la file TikTok`;
+  if (!list.length) { $("#clips").innerHTML = `<div class="empty">Pas de clip ici.</div>`; return; }
+  $("#clips").innerHTML = list.map(c => {
+    const base = `/media/${encodeURIComponent(c.folder)}`, st = byFolder[c.folder];
+    const views = st ? Object.entries(st.platforms).map(([k, p]) => `<span style="color:${P[k].c}">${P[k].s} ${fmt(p.views)}</span>`).join("") : "";
+    const pub = Object.entries(c.published || {}).map(([k, v]) => {
+      const name = k === "tiktok_draft" ? "TikTok (brouillon)" : P[k]?.n || k;
+      return `<span class="plb" style="--c:${v.ok ? (P[k] || P.tiktok).c : "var(--err)"}" title="${esc(v.error || "")}">${name}${v.ok ? "" : " : erreur"}</span>`; }).join("");
+    return `<div class="clip"><div class="cov" style="background-image:url('${base}/cover.jpg')" onclick="openClip('${esc(c.folder)}')">
+        ${c.score ? `<span class="score">${c.score}/10</span>` : ""}<div class="views">${views}</div>
+        <div class="play"><svg width="54" height="54" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div></div>
+      <div class="body"><div class="t">${esc(c.title)}</div>
+        <div class="meta">${esc(c.streamer)} · ${c.duration}s · ${esc(c.created)}</div>
+        <div>${pub || `<span class="meta">Pas encore publié</span>`}</div>
+        <div class="row" style="gap:6px;margin-top:4px">
           <button class="btn sm" onclick="pub('${c.folder}', this)">Publier</button>
-          <button class="btn sec sm" onclick="del('${c.folder}')">Supprimer</button>
-        </div>
-      </div></div>`;
+          <button class="btn tt sm" onclick="openTikTok('${esc(c.folder)}')">TikTok</button>
+          <button class="btn sec sm" onclick="ttDraft('${esc(c.folder)}', this)" title="Envoyer dans tes brouillons TikTok, sans publier">Brouillon TikTok</button>
+          <button class="btn sec sm" onclick="openClip('${esc(c.folder)}')">Détails</button>
+          <button class="btn sec sm" onclick="del('${c.folder}')">Supprimer</button></div></div></div>`;
   }).join("");
 }
 window.copyTxt = (btn, t) => { navigator.clipboard.writeText(t); const o = btn.textContent; btn.textContent = "Copié !"; setTimeout(() => btn.textContent = o, 1200); };
 window.pub = async (f, btn) => {
-  if (!confirm("Publier ce clip sur les plateformes cochées dans Paramètres ?")) return;
+  if (!confirm("Publier ce clip sur YouTube et Instagram (selon les cases des Paramètres) ?\nPour TikTok, utilise le bouton « TikTok ».")) return;
   btn.disabled = true; btn.textContent = "Envoi...";
   try { const r = await api(`/api/clips/${f}/publish`, {method: "POST", body: "{}"}); alert(Object.entries(r).map(([k, v]) => `${k} : ${v}`).join("\n")); }
   catch (e) { alert(e.message); }
-  loadClips();
+  btn.disabled = false; btn.textContent = "Publier"; if (current === "clips") loadClips();
 };
 window.del = async f => { if (confirm("Mettre ce clip à la corbeille ?")) { await api(`/api/clips/${f}`, {method: "DELETE"}); loadClips(); } };
 $("#openout").onclick = () => api("/api/open-output", {method: "POST"});
 
+/* ---------- streamers ---------- */
 async function loadTrend() {
   $("#trend-live").innerHTML = `<tr><td colspan=5 class="hint">Chargement...</td></tr>`;
   const d = await api("/api/trending").catch(e => ({live: [], vods: [], errors: [e.message]}));
   $("#trend-err").textContent = (d.errors || []).join(" · ");
-  const row = (s, label) => `<tr><td><img src="${esc(s.thumbnail)}" loading="lazy"></td><td><b>${esc(s.streamer)}</b><div class="hint">${esc(s.platform)} ${esc(s.language)}</div></td>
-    <td>${esc(s.title)}</td><td>${(s.viewers || 0).toLocaleString("fr-FR")}</td>
-    <td><button class="btn sm" onclick="clipUrl('${esc(s.url)}')">${label}</button></td></tr>`;
+  const row = (s, label) => `<tr><td><img class="tr" src="${esc(s.thumbnail)}" loading="lazy"></td><td><b>${esc(s.streamer)}</b><div class="hint">${esc(s.platform)} ${esc(s.language)}</div></td>
+    <td>${esc(s.title)}</td><td class="num">${nf.format(s.viewers || 0)}</td>
+    <td><button class="btn sm" onclick="event.stopPropagation();clipUrl('${esc(s.url)}')">${label}</button></td></tr>`;
   $("#trend-live").innerHTML = d.live.map(s => row(s, "Clipper le live")).join("") || `<tr><td colspan=5 class="hint">Aucun live trouvé.</td></tr>`;
   $("#trend-vod").innerHTML = d.vods.map(s => row(s, "Clipper la rediff")).join("") || `<tr><td colspan=5 class="hint">—</td></tr>`;
 }
 $("#refresh").onclick = loadTrend;
 window.clipUrl = async url => {
-  try { await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: "auto"})});
-    document.querySelector('nav button[data-tab="create"]').click(); loadJobs(); }
+  try { await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: "auto"})}); show("create"); }
   catch (e) { alert(e.message); }
 };
 
+/* ---------- parametres ---------- */
 const FIELDS = [
   ["Clips", null],
   ["clip_target_seconds", "Durée visée (s)", "number"], ["clip_min_seconds", "Durée min (s)", "number"],
@@ -270,20 +711,26 @@ const FIELDS = [
   ["sfx_volume", "Volume effets sonores (0-1)", "number"], ["credit_streamer", "Afficher @streamer", "bool"],
   ["Live", null],
   ["live_spike_threshold", "Sensibilité (plus bas = plus de clips)", "number"], ["live_cooldown_seconds", "Délai mini entre 2 clips (s)", "number"],
+  ["Statistiques", null],
+  ["stats_interval_minutes", "Relevé des statistiques toutes les (min)", "number"],
   ["Découverte", null],
   ["twitch_client_id", "Twitch Client ID", "text"], ["twitch_client_secret", "Twitch Client Secret", "password"],
   ["youtube_api_key", "Clé API YouTube", "password"],
   ["Publication", null],
   ["publish_mode", "Mode de publication", ["manual", "auto"]],
   ["publish_youtube", "Publier sur YouTube", "bool"], ["youtube_privacy", "Visibilité YouTube", ["public", "unlisted", "private"]],
-  ["publish_tiktok", "Publier sur TikTok", "bool"], ["tiktok_privacy", "Visibilité TikTok", ["SELF_ONLY", "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS"]],
+  ["tiktok_auto_draft", "Nouveaux clips → brouillons TikTok (automatique)", "bool"],
   ["tiktok_client_key", "TikTok Client Key", "text"], ["tiktok_client_secret", "TikTok Client Secret", "password"],
   ["tiktok_access_token", "TikTok Access Token", "password"], ["tiktok_refresh_token", "TikTok Refresh Token", "password"],
   ["publish_instagram", "Publier sur Instagram", "bool"], ["instagram_user_id", "Instagram User ID", "text"],
   ["instagram_access_token", "Instagram Access Token", "password"],
 ];
 async function loadSettings() {
-  const c = await api("/api/config");
+  const [c, o] = await Promise.all([api("/api/config"), api("/api/stats/overview?days=1").catch(() => null)]);
+  if (o) $("#connStats").innerHTML = Object.entries(o.platforms).map(([k, p]) => { const st = p.status || {};
+    return `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="plb" style="--c:${P[k].c}">${P[k].n}</span>
+      <span style="color:${st.ok ? "var(--ok)" : "var(--warn)"}">${st.ok ? "Statistiques OK" + (st.account ? " · @" + esc(st.account) : "") : "À configurer"}</span>
+      <span class="meta">${esc(st.message || "")}</span></div>`; }).join("");
   $("#form").innerHTML = FIELDS.map(([k, label, type]) => {
     if (label === null) return `<div class="sec-title">${k}</div>`;
     let input;
@@ -295,21 +742,24 @@ async function loadSettings() {
 }
 $("#save").onclick = async () => {
   const v = {};
-  document.querySelectorAll("#form [data-k]").forEach(el => {
-    const t = el.dataset.t;
-    v[el.dataset.k] = t === "number" ? +el.value : t === "bool" ? el.value === "true" : el.value;
-  });
+  $$("#form [data-k]").forEach(el => { const t = el.dataset.t;
+    v[el.dataset.k] = t === "number" ? +el.value : t === "bool" ? el.value === "true" : el.value; });
   await api("/api/config", {method: "POST", body: JSON.stringify(v)});
   $("#saved").textContent = "Enregistré ✓"; setTimeout(() => $("#saved").textContent = "", 2000);
   loadStatus();
 };
 $("#ytconnect").onclick = async () => {
-  try { await api("/api/youtube/connect", {method: "POST"}); alert("YouTube connecté !"); loadStatus(); }
+  const b = $("#ytconnect"); b.disabled = true; b.textContent = "Fenêtre Google ouverte…";
+  try { await api("/api/youtube/connect", {method: "POST"}); alert("YouTube connecté ! Les statistiques arrivent dans quelques secondes."); loadStatus(); setTimeout(loadSettings, 6000); }
   catch (e) { alert(e.message); }
+  b.disabled = false; b.textContent = "Connecter / reconnecter YouTube";
 };
 
-loadStatus(); loadJobs();
-setInterval(loadJobs, 2500); setInterval(loadStatus, 15000);
+/* ---------- rafraichissement ---------- */
+loadStatus(); show("dash");
+setInterval(() => { if (current === "create") loadJobs(); }, 2500);
+setInterval(loadStatus, 15000);
+setInterval(() => { if (current === "dash" && $("#ov").classList.contains("hidden")) loadDash(); }, 60000);
 </script>
 </body>
 </html>
