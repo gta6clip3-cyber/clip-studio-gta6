@@ -20,9 +20,59 @@ def platform_of(url: str) -> str:
     return "other"
 
 
+def youtube_cookies() -> Path | None:
+    """Fichier de cookies d'un compte YouTube (format Netscape « cookies.txt »), s'il y en a un.
+
+    Sans lui, YouTube finit par bloquer les lives (« Sign in to confirm you're not a bot »). Par defaut
+    data/youtube_cookies.txt ; un autre chemin peut etre mis dans Parametres (youtube_cookies_file)."""
+    from . import config
+    p = Path(config.load().get("youtube_cookies_file") or config.DATA / "youtube_cookies.txt")
+    return p if p.is_file() and p.stat().st_size > 0 else None
+
+
+def _cookie_copy(src: Path) -> Path:
+    """yt-dlp reecrit le fichier de cookies en partant : plusieurs yt-dlp en meme temps (un par live) le
+    corromperaient. Chacun recoit donc sa copie (dans work/, vide au demarrage de l'app)."""
+    import shutil
+    import uuid
+
+    from . import config
+    d = config.WORK / "cookies"
+    d.mkdir(parents=True, exist_ok=True)
+    dst = d / f"yt_{uuid.uuid4().hex[:10]}.txt"
+    shutil.copyfile(src, dst)
+    return dst
+
+
 def _ytdlp_base() -> list[str]:
     ff = Path(tool("ffmpeg")).parent
-    return [venv_bin("yt-dlp"), "--no-warnings", "--no-playlist", "--ffmpeg-location", str(ff)]
+    base = [venv_bin("yt-dlp"), "--no-warnings", "--no-playlist", "--ffmpeg-location", str(ff)]
+    cookies = youtube_cookies()
+    if cookies:  # seuls les sites dont le domaine est dans le fichier (YouTube) recoivent ces cookies
+        base += ["--cookies", str(_cookie_copy(cookies))]
+    if _node():  # YouTube impose un defi JavaScript (resolu par yt-dlp-ejs) : sans lui, « No video formats found »
+        base += ["--js-runtimes", "node"]
+    return base
+
+
+def _node() -> bool:
+    import shutil
+    return shutil.which("node") is not None
+
+
+def streamlink_cookie_args(url: str) -> list[str]:
+    """Cookies YouTube pour streamlink (il ne lit pas les fichiers cookies.txt : un --http-cookie par cookie)."""
+    cookies = youtube_cookies()
+    if not cookies or platform_of(url) != "youtube":
+        return []
+    args = []
+    for line in cookies.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        parts = line.split("\t")
+        if len(parts) == 7 and not line.startswith("#") and "youtube.com" in parts[0]:
+            args += ["--http-cookie", f"{parts[5]}={parts[6].strip()}"]
+    return args
 
 
 def clean_name(name: str) -> str:

@@ -300,9 +300,18 @@ def finish_clip(job: Job, m: Moment, audio: Path, video: VideoProvider, streamer
     job.say(f"Clip {index} pret : {title}")
 
     if cfg["publish_mode"] == "auto":
+        from . import ytqueue
         from .publish import publish_clip
+        platforms = [p for p in ("youtube", "tiktok", "instagram") if cfg.get(f"publish_{p}")]
+        for q in ytqueue.PLATFORMS:
+            if q in platforms and ytqueue.enabled(cfg, q):
+                # file d'attente : un clip a chaque heure prevue (une rafale fait passer le compte pour un robot)
+                platforms.remove(q)
+                ytqueue.add(folder, q)
+                st = ytqueue.status(q)
+                job.say(f"{q} : en file ({len(st['waiting'])} en attente, prochaine publication a {st['next']})")
         try:
-            res = publish_clip(folder)
+            res = publish_clip(folder, platforms)
             job.say(f"Publication : {res}")
         except Exception as e:
             job.say(f"Publication echouee : {e}")

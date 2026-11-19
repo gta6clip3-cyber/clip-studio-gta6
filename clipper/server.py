@@ -37,6 +37,8 @@ app.mount("/static", StaticFiles(directory=str(WEB)), name="static")
 def _start_stats():
     from . import stats
     stats.start_scheduler()  # releve des statistiques des comptes toutes les 15 min
+    from . import ytqueue
+    ytqueue.start_scheduler()  # file de publication YouTube (un Short a chaque heure prevue)
 
 
 class NewJob(BaseModel):
@@ -55,7 +57,8 @@ class PublishReq(BaseModel):
 
 @app.get("/")
 def index():
-    return FileResponse(WEB / "index.html")
+    # pas de cache : apres une mise a jour, la nouvelle interface s'affiche sans Ctrl+F5
+    return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/status")
@@ -74,6 +77,8 @@ def status():
         st["ollama"] = False
     st["twitch_api"] = bool(cfg["twitch_client_id"] and cfg["twitch_client_secret"])
     st["youtube_connected"] = (config.DATA / "youtube_token.json").exists()
+    from .sources import youtube_cookies
+    st["youtube_cookies"] = youtube_cookies() is not None
     st["tiktok"] = bool(cfg["tiktok_access_token"])
     st["instagram"] = bool(cfg["instagram_access_token"] and cfg["instagram_user_id"])
     st["publish_mode"] = cfg["publish_mode"]
@@ -214,6 +219,12 @@ def delete_clip(folder: str):
 def trending():
     from .trending import discover
     return discover()
+
+
+@app.get("/api/youtube-queue")
+def youtube_queue():
+    from . import ytqueue
+    return {**ytqueue.status("youtube"), "instagram": ytqueue.status("instagram")}
 
 
 @app.get("/api/search-lives")

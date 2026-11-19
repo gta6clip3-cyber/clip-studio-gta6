@@ -16,7 +16,7 @@ from .chat import hype_weight, live_chat
 from .highlights import AFTER, CHAT_DELAY, Candidate, score_timeline
 from .jobs import Job
 from .pipeline import analyse_moments, finish_clip
-from .sources import get_info, platform_of
+from .sources import _ytdlp_base, get_info, platform_of, streamlink_cookie_args
 from .utils import CREATE_NO_WINDOW, log, run, slug, tool, venv_bin
 
 
@@ -35,10 +35,15 @@ class LiveRecorder:
         self.ff = None
 
     def start(self) -> None:
-        self.sl = subprocess.Popen(
-            [venv_bin("streamlink"), "--stdout", "--hls-live-edge", "2",
-             "--retry-streams", "5", self.url, "1080p60,1080p,936p60,720p60,720p,best"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
+        if platform_of(self.url) == "youtube":
+            # streamlink ne passe plus les protections de YouTube (defi JavaScript) : yt-dlp, lui, y arrive
+            # (cookies du 2e compte + Node) et envoie le flux du live sur sa sortie
+            cmd = _ytdlp_base() + ["--no-part", "--quiet", "-f", "b[height<=1080]/b", "-o", "-", self.url]
+        else:
+            cmd = [venv_bin("streamlink"), "--stdout", "--hls-live-edge", "2", *streamlink_cookie_args(self.url),
+                   "--retry-streams", "5", self.url, "1080p60,1080p,936p60,720p60,720p,best"]
+        self.sl = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                   creationflags=CREATE_NO_WINDOW)
         self.ff = subprocess.Popen(
             [tool("ffmpeg"), "-v", "error", "-i", "pipe:0", "-map", "0:v:0", "-map", "0:a:0", "-c", "copy",
              "-f", "segment", "-segment_time", str(self.SEG), "-reset_timestamps", "1",

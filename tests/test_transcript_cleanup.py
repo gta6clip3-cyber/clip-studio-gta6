@@ -54,3 +54,23 @@ def test_streamer_name_without_channel_suffix():
     assert clean_name("Anyme Live Rediff") == "Anyme"
     assert clean_name("Ouah Leouff") == "Ouah Leouff"
     assert clean_name("Live") == "Live"
+
+
+def test_youtube_cookies_go_to_ytdlp_and_streamlink(tmp_path, monkeypatch):
+    """Les cookies d'un 2e compte YouTube levent le blocage « confirm you're not a bot »."""
+    from clipper import config, sources
+    cookies = tmp_path / "youtube_cookies.txt"
+    monkeypatch.setattr(config, "load", lambda: {"youtube_cookies_file": str(cookies)})
+    monkeypatch.setattr(config, "WORK", tmp_path / "work")
+    monkeypatch.setattr(sources, "tool", lambda name: str(tmp_path / "ffmpeg.exe"))
+    assert sources.youtube_cookies() is None and "--cookies" not in sources._ytdlp_base()  # pas de fichier
+    cookies.write_text("# Netscape HTTP Cookie File\n"
+                       ".youtube.com\tTRUE\t/\tTRUE\t1999999999\tSID\tabc\n"
+                       "#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t1999999999\t__Secure-3PSID\tdef\n"
+                       ".google.com\tTRUE\t/\tTRUE\t1999999999\tNID\tzzz\n", encoding="utf-8")
+    base = sources._ytdlp_base()
+    copy = base[base.index("--cookies") + 1]
+    assert copy != str(cookies) and open(copy, encoding="utf-8").read() == cookies.read_text(encoding="utf-8")
+    assert sources.streamlink_cookie_args("https://www.youtube.com/watch?v=x") == [
+        "--http-cookie", "SID=abc", "--http-cookie", "__Secure-3PSID=def"]
+    assert sources.streamlink_cookie_args("https://www.twitch.tv/kaicenat") == []  # jamais envoyes a Twitch

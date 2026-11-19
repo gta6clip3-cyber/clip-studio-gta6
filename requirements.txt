@@ -9,6 +9,7 @@ faster-whisper
 sherpa-onnx
 onnxruntime
 yt-dlp
+yt-dlp-ejs          # defi JavaScript de YouTube (avec Node.js installe)
 streamlink
 chat-downloader
 google-api-python-client

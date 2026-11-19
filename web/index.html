@@ -222,6 +222,7 @@ td img.tr{width:112px;border-radius:6px;display:block}
   <div class="top"><div><h1>Mes clips</h1><div class="sub" id="clipsSub"></div></div>
     <div class="r"><div class="seg" id="clipFilter"><button data-f="all" class="on">Tous</button><button data-f="pub">Publiés</button><button data-f="unpub">À publier</button><button data-f="ttq">File TikTok <b id="ttqn"></b></button></div>
       <button class="btn sec sm" id="openout">Ouvrir le dossier</button></div></div>
+  <div class="hint" id="ytq" style="margin:-6px 0 12px"></div>
   <div class="grid clips" id="clips"></div>
 </section>
 
@@ -683,7 +684,11 @@ async function loadClips() {
   const [clips, vids] = await Promise.all([api("/api/clips").catch(() => []), api("/api/stats/videos").catch(() => [])]);
   vidData = vids;
   const byFolder = Object.fromEntries(vids.filter(v => v.folder).map(v => [v.folder, v]));
-  const isPub = c => Object.entries(c.published || {}).some(([k, x]) => x.ok && k !== "tiktok_draft");
+  const isPub = c => Object.entries(c.published || {}).some(([k, x]) => x.ok && k !== "tiktok_draft" && !k.endsWith("_queue"));
+  api("/api/youtube-queue").then(q => { $("#ytq").textContent = (q.enabled || q.instagram.enabled)
+    ? `File de publication (${q.slots.join(", ")}) · YouTube : ${q.enabled ? q.waiting.length + " en attente" : "désactivée"}`
+      + ` · Instagram : ${q.instagram.enabled ? q.instagram.waiting.length + " en attente" : "désactivée"} · prochaine : ${q.next}`
+    : ""; }).catch(() => {});
   const queue = ttQueue(clips);
   $("#ttqn").textContent = queue.length || "";
   const list = clipFilter === "ttq" ? queue : clips.filter(c => clipFilter === "all" || (clipFilter === "pub") === isPub(c));
@@ -694,8 +699,10 @@ async function loadClips() {
     const views = st ? Object.entries(st.platforms).map(([k, p]) => `<span style="color:${P[k].c}">${P[k].s} ${fmt(p.views)}</span>`).join("") : "";
     CAPS[c.folder] = c.caption || "";
     const pub = Object.entries(c.published || {}).map(([k, v]) => {
-      const name = k === "tiktok_draft" ? "TikTok (brouillon)" : P[k]?.n || k;
-      return `<span class="plb" style="--c:${v.ok ? (P[k] || P.tiktok).c : "var(--err)"}" title="${esc(v.error || "")}">${name}${v.ok ? "" : " : erreur"}</span>`; }).join("");
+      const qp = k.endsWith("_queue") ? k.slice(0, -6) : "";
+      if (qp && c.published?.[qp]?.ok) return "";
+      const name = k === "tiktok_draft" ? "TikTok (brouillon)" : qp ? `${P[qp]?.n || qp} (en file)` : P[k]?.n || k;
+      return `<span class="plb" style="--c:${v.ok ? (P[k] || P[qp] || P.tiktok).c : "var(--err)"}" title="${esc(v.error || "")}">${name}${v.ok ? "" : " : erreur"}</span>`; }).join("");
     return `<div class="clip"><div class="cov" style="background-image:url('${base}/cover.jpg')" onclick="openClip('${esc(c.folder)}')">
         ${c.score ? `<span class="score">${c.score}/10</span>` : ""}<div class="views">${views}</div>
         <div class="play"><svg width="54" height="54" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div></div>
@@ -773,6 +780,10 @@ const FIELDS = [
   ["Publication", null],
   ["publish_mode", "Mode de publication", ["manual", "auto"]],
   ["publish_youtube", "Publier sur YouTube", "bool"], ["youtube_privacy", "Visibilité YouTube", ["public", "unlisted", "private"]],
+  ["youtube_queue", "File YouTube : publier les clips auto un par un aux heures ci-dessous", "bool"],
+  ["instagram_queue", "File Instagram : publier les clips auto un par un aux mêmes heures", "bool"],
+  ["youtube_slots", "Heures de publication YouTube et Instagram (ex. 12:00,18:00,21:00 = 3 par jour)", "text"],
+  ["youtube_cookies_file", "Cookies d'un 2e compte YouTube (fichier cookies.txt ; vide = data\youtube_cookies.txt)", "text"],
   ["tiktok_auto_draft", "Nouveaux clips → brouillons TikTok (automatique)", "bool"],
   ["tiktok_app_approved", "App TikTok validée par TikTok (autorise la publication publique)", "bool"],
   ["tiktok_client_key", "TikTok Client Key", "text"], ["tiktok_client_secret", "TikTok Client Secret", "password"],

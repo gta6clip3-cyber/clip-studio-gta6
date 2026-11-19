@@ -7,6 +7,7 @@ __pycache__/
 data/config.json
 data/*secret*.json
 data/*token*.json
+data/*cookies*
 .env
 
 # Fichiers generes / lourds
@@ -24,3 +25,6 @@ branding/
 
 # Statistiques des comptes (releves locaux)
 data/*.db
+
+# Etat local des files de publication
+data/*_queue.json

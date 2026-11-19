@@ -85,6 +85,10 @@ DEFAULTS: dict = {
     "tiktok_client_secret": "",
     "tiktok_redirect_uri": "",            # page https declaree dans ton app TikTok
     "tiktok_privacy": "SELF_ONLY",        # PUBLIC_TO_EVERYONE apres validation de l'app TikTok
+    "youtube_queue": True,                # clips du mode auto : publies sur YouTube un par un aux heures prevues
+    "instagram_queue": True,              # pareil pour Instagram (memes heures)
+    "youtube_slots": "12:00,18:00,21:00", # heures de publication YouTube et Instagram (3 = 3 par jour)
+    "youtube_cookies_file": "",           # cookies d'un 2e compte YouTube (vide = data/youtube_cookies.txt)
     "instagram_user_id": "",
     "instagram_access_token": "",
     "youtube_privacy": "public",
