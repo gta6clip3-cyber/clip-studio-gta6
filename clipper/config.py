@@ -41,6 +41,7 @@ DEFAULTS: dict = {
     "game_widen": 1.3,                    # 1.0 = jeu plein cadre ; plus grand = on voit plus de la scene
     "subtitle_font": "Arial Black",
     "subtitle_size": 68,                  # taille des sous-titres (avant : 92)
+    "hook_seconds": 10,                   # duree d'affichage de la phrase d'accroche en haut du clip
     "speaker_colors": True,               # une couleur par personne qui parle
     "speaker_threshold": 0.4,             # detecteur de tours de parole (pyannote)
     "speaker_max_inter_similarity": 0.45, # plus haut = separe plus facilement les voix (risque de fausses couleurs)

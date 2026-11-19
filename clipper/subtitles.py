@@ -267,9 +267,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         text, hsize = fit_hook(_esc(hook.upper()), cfg["title_font"], W - 2 * (18 + 30))
         # 2 lignes : le bandeau grandit du cote oppose au « @streamer » pour ne pas le recouvrir
         grow = (1 if credit_y < hook_y else -1) * round(text.count("\\N") * hsize * 0.55)
-        ev.append(f"Dialogue: 2,{_ts(0)},{_ts(min(3.2, duration))},Hook,,0,0,0,,"
+        hold = float(cfg.get("hook_seconds", 10))  # duree d'affichage de la phrase d'accroche
+        ev.append(f"Dialogue: 2,{_ts(0)},{_ts(min(hold, duration))},Hook,,0,0,0,,"
                   f"{{\\an5\\pos({W // 2},{hook_y + grow})\\fs{hsize}\\fscx60\\fscy60\\t(0,140,\\fscx100\\fscy100)"
-                  f"\\fad(0,200)}}{text}")
+                  f"\\fad(0,400)}}{text}")
     if streamer and cfg.get("credit_streamer", True):
         ev.append(f"Dialogue: 0,{_ts(0)},{_ts(duration)},Credit,,0,0,0,,"
                   f"{{\\an9\\pos({W - 30},{credit_y})}}@{_esc(streamer)}")

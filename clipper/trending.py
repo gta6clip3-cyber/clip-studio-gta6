@@ -62,13 +62,13 @@ def twitch_top_vods(limit: int = 20, period: str = "week") -> list[dict]:
             for v in r.json().get("data", [])]
 
 
-def youtube_live(limit: int = 15) -> list[dict]:
+def youtube_live(limit: int = 15, query: str = "GTA 6") -> list[dict]:
     cfg = config.load()
     key = cfg["youtube_api_key"]
     if not key:
         raise RuntimeError("Cle API YouTube manquante (Parametres).")
     r = requests.get("https://www.googleapis.com/youtube/v3/search", params={
-        "part": "snippet", "q": "GTA 6", "eventType": "live", "type": "video", "order": "viewCount",
+        "part": "snippet", "q": query, "eventType": "live", "type": "video", "order": "viewCount",
         "maxResults": limit, "key": key}, timeout=15)
     r.raise_for_status()
     items = r.json().get("items", [])
@@ -84,6 +84,68 @@ def youtube_live(limit: int = 15) -> list[dict]:
             "url": f"https://www.youtube.com/watch?v={i['id']['videoId']}", "live": True,
             "thumbnail": i["snippet"]["thumbnails"]["medium"]["url"]} for i in items]
     return sorted(out, key=lambda x: x["viewers"], reverse=True)
+
+
+def twitch_search(query: str, limit: int = 20) -> list[dict]:
+    """Lives Twitch dont le nom de chaine correspond a la recherche (tous les jeux)."""
+    cfg = config.load()
+    h = _twitch_headers(cfg)
+    r = requests.get("https://api.twitch.tv/helix/search/channels", params={
+        "query": query, "live_only": "true", "first": limit}, headers=h, timeout=15)
+    r.raise_for_status()
+    found = [c for c in r.json().get("data", []) if c.get("is_live")]
+    if not found:
+        return []
+    # la recherche ne donne ni les spectateurs ni l'apercu du live : on les demande pour toutes les chaines d'un coup
+    st = requests.get("https://api.twitch.tv/helix/streams", params=[("user_id", c["id"]) for c in found] +
+                      [("first", "100")], headers=h, timeout=15)
+    st.raise_for_status()
+    live = {s["user_id"]: s for s in st.json().get("data", [])}
+    out = []
+    for c in found:
+        s = live.get(c["id"])
+        if not s:
+            continue
+        out.append({"platform": "twitch", "streamer": c["display_name"], "login": c["broadcaster_login"],
+                    "title": s["title"], "viewers": s["viewer_count"], "language": s.get("language", ""),
+                    "game": s.get("game_name", ""), "url": f"https://www.twitch.tv/{c['broadcaster_login']}",
+                    "live": True,
+                    "thumbnail": s["thumbnail_url"].replace("{width}", "320").replace("{height}", "180")})
+    return out
+
+
+def search_lives(query: str, platform: str = "all") -> dict:
+    """Recherche d'un live a clipper : nom du streamer ou mots du titre, sur Twitch et/ou YouTube.
+    Une recherche YouTube coute 100 unites de quota (10 000 par jour) : elle n'est faite que sur demande."""
+    query = query.strip()
+    res: dict = {"live": [], "errors": []}
+    if len(query) < 2:
+        res["errors"].append("Tape au moins 2 lettres.")
+        return res
+    sources = []
+    if platform in ("all", "twitch"):
+        sources.append(("Twitch", lambda: twitch_search(query)))
+    if platform in ("all", "youtube"):
+        sources.append(("YouTube", lambda: youtube_live(10, query)))
+    for name, fn in sources:
+        try:
+            res["live"].extend(fn())
+        except Exception as e:
+            res["errors"].append(f"{name} : {e}")
+    res["live"].sort(key=lambda s: (match_rank(query, s), -s["viewers"]))
+    return res
+
+
+def match_rank(query: str, s: dict) -> int:
+    """0 = c'est ce streamer, 1 = son nom contient la recherche, 2 = trouve par le titre ou autre.
+    Les espaces et la casse ne comptent pas : « kai cenat » = « KaiCenat »."""
+    import re
+    norm = lambda t: re.sub(r"[^a-z0-9]", "", (t or "").lower())  # noqa: E731
+    q = norm(query)
+    names = [norm(s.get("streamer")), norm(s.get("login"))]
+    if q in names:
+        return 0
+    return 1 if any(q in n for n in names if n) else 2
 
 
 def discover() -> dict:

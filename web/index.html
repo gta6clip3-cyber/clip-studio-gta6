@@ -257,6 +257,16 @@ td img.tr{width:112px;border-radius:6px;display:block}
 <section id="tab-trend" class="hidden">
   <div class="top"><h1>Streamers du moment</h1><div class="r"><button class="btn sec sm" id="refresh">Actualiser</button></div></div>
   <div class="card" style="margin-bottom:18px">
+    <h2>Rechercher un live</h2>
+    <form class="row" id="lsearch" onsubmit="event.preventDefault();searchLives()">
+      <input id="lsq" placeholder="Nom du streamer ou mots du titre (ex. Kai Cenat, Rubius, braquage…)" style="flex:1;min-width:220px" autocomplete="off">
+      <select id="lsp"><option value="all">Twitch + YouTube</option><option value="twitch">Twitch</option><option value="youtube">YouTube</option></select>
+      <button class="btn" id="lsgo">Rechercher</button>
+    </form>
+    <div class="hint" id="lserr" style="margin-top:8px">Cherche parmi les lives en cours, tous jeux confondus. Une recherche YouTube consomme du quota : préfère Twitch si tu cherches un streamer Twitch.</div>
+    <table id="lstable" style="display:none;margin-top:10px"><thead><tr><th></th><th>Streamer</th><th>Titre</th><th class="num">Viewers</th><th></th></tr></thead><tbody id="lsres"></tbody></table>
+  </div>
+  <div class="card" style="margin-bottom:18px">
     <h2>Lives GTA 6 les plus regardés</h2>
     <div id="trend-err" class="hint"></div>
     <table><thead><tr><th></th><th>Streamer</th><th>Titre</th><th class="num">Viewers</th><th></th></tr></thead><tbody id="trend-live"></tbody></table>
@@ -724,6 +734,20 @@ async function loadTrend() {
   $("#trend-vod").innerHTML = d.vods.map(s => row(s, "Clipper la rediff")).join("") || `<tr><td colspan=5 class="hint">—</td></tr>`;
 }
 $("#refresh").onclick = loadTrend;
+const liveRow = (s, label) => `<tr><td><img class="tr" src="${esc(s.thumbnail)}" loading="lazy"></td><td><b>${esc(s.streamer)}</b>
+    <div class="hint">${esc(s.platform)}${s.game ? " · " + esc(s.game) : ""}${s.language ? " · " + esc(s.language) : ""}</div></td>
+    <td>${esc(s.title)}</td><td class="num">${nf.format(s.viewers || 0)}</td>
+    <td><button class="btn sm" onclick="event.stopPropagation();clipUrl('${esc(s.url)}')">${label}</button></td></tr>`;
+window.searchLives = async () => {
+  const q = $("#lsq").value.trim(); if (!q) return;
+  const go = $("#lsgo"); go.disabled = true; go.textContent = "Recherche…";
+  $("#lstable").style.display = ""; $("#lsres").innerHTML = `<tr><td colspan=5 class="hint">Recherche de « ${esc(q)} »…</td></tr>`;
+  const d = await api(`/api/search-lives?q=${encodeURIComponent(q)}&platform=${$("#lsp").value}`).catch(e => ({live: [], errors: [e.message]}));
+  $("#lserr").textContent = (d.errors || []).join(" · ") || `${d.live.length} live(s) trouvé(s).`;
+  $("#lsres").innerHTML = d.live.map(s => liveRow(s, "Clipper ce live")).join("")
+    || `<tr><td colspan=5 class="hint">Aucun live en cours pour « ${esc(q)} ». Vérifie l'orthographe, ou le streamer n'est pas en live.</td></tr>`;
+  go.disabled = false; go.textContent = "Rechercher";
+};
 window.clipUrl = async url => {
   try { await api("/api/jobs", {method: "POST", body: JSON.stringify({url, mode: "auto"})}); show("create"); }
   catch (e) { alert(e.message); }
@@ -736,6 +760,7 @@ const FIELDS = [
   ["clip_max_seconds", "Durée max (s)", "number"], ["max_clips_per_vod", "Clips max par rediffusion", "number"],
   ["game_name", "Catégorie du jeu (Twitch)", "text"],
   ["Montage", null],
+  ["hook_seconds", "Durée de la phrase d'accroche (s)", "number"],
   ["facecam_height", "Hauteur de la facecam (px sur 1920)", "number"], ["music_volume", "Volume musique (0-1)", "number"],
   ["sfx_volume", "Volume effets sonores (0-1)", "number"], ["credit_streamer", "Afficher @streamer", "bool"],
   ["Live", null],

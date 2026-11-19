@@ -216,6 +216,12 @@ def trending():
     return discover()
 
 
+@app.get("/api/search-lives")
+def search_lives(q: str, platform: str = "all"):
+    from .trending import search_lives as search
+    return search(q, platform)
+
+
 @app.get("/api/config")
 def get_config():
     return config.load()

@@ -191,3 +191,22 @@ def test_two_line_hook_does_not_cover_streamer_credit(tmp_path):
     build_ass(ass, [], 4.0, "RUBIUS CRIES LAUGHING AT LUCIA'S DIZZY OUTFIT", "Rubius", 1500, 790, 666)
     y = int(re.search(r"\\pos\(540,(\d+)\)", ass.read_text(encoding="utf-8")).group(1))
     assert y > 790  # @streamer au-dessus : le bandeau grandit vers le bas
+
+
+def test_hook_stays_about_ten_seconds(tmp_path):
+    from clipper.subtitles import build_ass
+    ass = tmp_path / "s.ass"
+    build_ass(ass, [], 45.0, "ASHTAX HAD 1 HP LEFT", "Ashtax", 1500, 790, 666)
+    hook = next(l for l in ass.read_text(encoding="utf-8").splitlines() if ",Hook," in l)
+    assert hook.split(",")[2] == "0:00:10.00"
+    build_ass(ass, [], 6.0, "ASHTAX HAD 1 HP LEFT", "Ashtax", 1500, 790, 666)  # clip plus court : jusqu'a la fin
+    hook = next(l for l in ass.read_text(encoding="utf-8").splitlines() if ",Hook," in l)
+    assert hook.split(",")[2] == "0:00:06.00"
+
+
+def test_live_search_puts_the_searched_streamer_first():
+    from clipper.trending import match_rank
+    kai = {"streamer": "KaiCenat", "login": "kaicenat"}
+    assert match_rank("kai cenat", kai) == 0
+    assert match_rank("kai", kai) == 1
+    assert match_rank("kai cenat", {"streamer": "IShowSpeed", "login": "ishowspeed"}) == 2
